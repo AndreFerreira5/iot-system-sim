@@ -3,4 +3,7 @@ project(iot-system-sim C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(iot-system-sim src/home_iot.c)
+add_executable(iot-system-sim src/home_iot.c src/config.c lib/cJSON/cJSON.c)
+
+
+target_include_directories(iot-system-sim PRIVATE "${CMAKE_SOURCE_DIR}/lib")
