@@ -1,0 +1,7 @@
+{
+  "QUEUE_SZ": 10,
+  "N_WORKERS": 5,
+  "MAX_KEYS": 300,
+  "MAX_SENSORS": 10,
+  "MAX_ALERTS": 50
+}
