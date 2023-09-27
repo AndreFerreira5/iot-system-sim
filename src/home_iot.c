@@ -1,5 +1,6 @@
 #include "home_iot.h"
 #include "log.h"
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -19,7 +20,13 @@ void home_sigint_handler(){
     waitpid(logger_pid, 0, 0);
 }
 
-int main(){
+int main(int argc, char *argv[]){
+  
+    if(argc != 2){
+          printf("home_iot *CONFIG_FILE*");
+          return 1;
+      }
+  
     // create sigaction struct
     struct sigaction sa;
     sa.sa_handler = home_sigint_handler;
