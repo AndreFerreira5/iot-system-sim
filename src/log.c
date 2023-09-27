@@ -77,6 +77,7 @@ void request_log(char* type, char* message){
 void write_log(char* type, char* message){
     char* datetime = get_current_time();
     fprintf(log_file, "%s [%s] %s\n", datetime, type, message);
+    printf("LOG WRITTEN\n");
 }
 
 void process_remaining_logs(){
@@ -115,6 +116,8 @@ void process_remaining_logs(){
 
 void sigint_handler(){
     close(log_pipe_fd);
+    request_log("INFO", "Logger process shutting down - SIGINT received");
+    printf("Logger process shutting down - SIGINT received\n");
     process_remaining_logs();
     remove_fifo();
     fclose(log_file);
@@ -123,6 +126,8 @@ void sigint_handler(){
 
 void error_handler(){
     close(log_pipe_fd);
+    request_log("ERROR", "Logger process shutting down - Internal Error");
+    printf("Logger process shutting down - Internal Error\n");
     process_remaining_logs();
     remove_fifo();
     fclose(log_file);
