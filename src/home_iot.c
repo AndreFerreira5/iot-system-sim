@@ -1,6 +1,7 @@
 #include "home_iot.h"
 #include "log.h"
 #include "config.h"
+#include "system_manager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -8,6 +9,7 @@
 #include <wait.h>
 
 pid_t logger_pid;
+pid_t sys_manager_pid;
 
 void home_sigint_handler(){
 
@@ -32,11 +34,13 @@ void home_sigint_handler(){
 }
 
 int main(int argc, char *argv[]){
-  
+
     if(argc != 2){
-          printf("home_iot *CONFIG_FILE*");
-          return 1;
+        printf("Arguments missing!\nUsage: home_iot *config_file*\n");
+        exit(-1);
     }
+
+    request_log("INFO", "HOME IOT BOOTING UP");
 
     load_config_file(argv[1]);
   
@@ -46,12 +50,12 @@ int main(int argc, char *argv[]){
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
-    // register the sigterm signal handler
+    // register the sigint signal handler
     if(sigaction(SIGINT, &sa, NULL) == -1){
         printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
         exit(1);
     }
-
+    // register the sigterm signal handler
     if(sigaction(SIGTERM, &sa, NULL) == -1){
         printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
         exit(1);
@@ -60,10 +64,8 @@ int main(int argc, char *argv[]){
     if ((logger_pid = fork()) == 0){
         init_logger();
     }
-    else{
-        //wait for logger_pid to boot
-        sleep(1);
-        request_log("EXAMPLE", "This is an example log");
+    else if((sys_manager_pid = fork()) == 0){
+        init_sys_manager();
     }
     waitpid(logger_pid, 0, 0);
     return 0;
