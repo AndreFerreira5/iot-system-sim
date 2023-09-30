@@ -1,6 +1,8 @@
 #ifndef IOT_SYSTEM_SIM_STRING_H
 #define IOT_SYSTEM_SIM_STRING_H
 
+#include "ring_buffer.h"
+
 /* Search mapped region for provided delimiter char returning it if found, otherwise returning NULL*/
 char* find_delimiter(char* start, const char* delimiter);
 

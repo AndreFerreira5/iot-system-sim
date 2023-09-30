@@ -1,5 +1,7 @@
 #include "log.h"
 #include "string.h"
+#include "ring_buffer.h"
+#include "system_manager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,26 +24,8 @@ int log_pipe_fd;
 
 FILE* log_file;
 
-void sigint_handler();
+void log_sigint_handler();
 void error_handler();
-
-void create_fifo(){
-    if(mkfifo(LOG_PIPE, 0666)<0 && errno != EEXIST){
-        printf("ERROR CREATING LOG_PIPE\n");
-        close(log_pipe_fd);
-        fclose(log_file);
-        exit(1);
-    }
-}
-
-void remove_fifo(){
-    if(unlink(LOG_PIPE) == -1){
-        printf("ERROR UNLINKING LOG_PIPE\n");
-        close(log_pipe_fd);
-        fclose(log_file);
-        exit(1);
-    }
-}
 
 char* get_current_time(){
     // get the current date
@@ -56,6 +40,7 @@ char* get_current_time(){
 
 void request_log(char* type, char* message){
     int log_fd = open(LOG_PIPE, O_WRONLY);
+
     //if pipe fails to open
     if(log_fd == -1){
         perror("pipe open");
@@ -67,7 +52,7 @@ void request_log(char* type, char* message){
     char buffer[log_bytes];
     // assemble pipe message
     snprintf(buffer, log_bytes, "#%s#%s", type, message);
-    printf("SENT MSG: %s\n", buffer);
+    //printf("SENT MSG: %s\n", buffer);
     // send message to pipe
     write(log_fd, buffer, log_bytes);
     // close pipe
@@ -114,22 +99,20 @@ void process_remaining_logs(){
     close(log_fd);
 }
 
-void sigint_handler(){
+void log_sigint_handler(){
     close(log_pipe_fd);
-    request_log("INFO", "Logger process shutting down - SIGINT received");
+    //request_log("INFO", "Logger process shutting down - SIGINT received");
     printf("Logger process shutting down - SIGINT received\n");
-    process_remaining_logs();
-    remove_fifo();
+    //process_remaining_logs();
     fclose(log_file);
     exit(0);
 }
 
 void error_handler(){
     close(log_pipe_fd);
-    request_log("ERROR", "Logger process shutting down - Internal Error");
+    //request_log("ERROR", "Logger process shutting down - Internal Error");
     printf("Logger process shutting down - Internal Error\n");
-    process_remaining_logs();
-    remove_fifo();
+    //process_remaining_logs();
     fclose(log_file);
     exit(1);
 }
@@ -158,13 +141,15 @@ char* generate_log_name(){
     return log_file_name;
 }
 
-_Noreturn void init_logger(){
+_Noreturn void init_logger(shared_ring_buffer *ring_buffer_shmem){
 
     // create sigaction struct
     struct sigaction sa;
-    sa.sa_handler = sigint_handler;
+    sa.sa_handler = log_sigint_handler;
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
+    //sa.sa_flags = 0;
+    sigaddset(&sa.sa_mask, SIGINT);
+    sigaction(SIGINT, &sa, NULL);
 
     // register the sigterm signal handler
     if(sigaction(SIGINT, &sa, NULL) == -1){
@@ -172,12 +157,19 @@ _Noreturn void init_logger(){
         exit(1);
     }
 
-    create_fifo();
-
     char* log_file_name = generate_log_name();
-
     // open log file for writing
     log_file = fopen(log_file_name, "w");
+
+    while(1){
+        char* extracted_string = get_ring(&ring_buffer_shmem->ring_buffer);
+        printf("READ\n");
+        free(extracted_string);
+    }
+
+
+
+
 
     // open log pipe for reading and writing to prevent read() to always return on EOF
     // effectively causing a busy wait
@@ -187,11 +179,13 @@ _Noreturn void init_logger(){
         error_handler();
     }
 
+    ssize_t num_read;
     while(1){
 
         char *buffer = (char*)malloc(BUFFER_LEN*sizeof(char));
         void* orig_buffer_ptr = buffer;
-        read(log_pipe_fd, buffer, BUFFER_LEN);
+        num_read= read(log_pipe_fd, buffer, BUFFER_LEN);
+        printf("READ: %zd\n", num_read);
 
         while(*buffer == '#'){
             buffer = skip_delimiter(buffer, DELIMITER);

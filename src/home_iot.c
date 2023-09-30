@@ -7,27 +7,26 @@
 #include <signal.h>
 #include <unistd.h>
 #include <wait.h>
+#include <fcntl.h>
 
-pid_t logger_pid;
 pid_t sys_manager_pid;
 
 void home_sigint_handler(){
 
-    request_log("INFO", "Home_IoT shutting down - SIGINT received");
+    //request_log("INFO", "Home_IoT shutting down - SIGINT received");
     printf("Home_IoT shutting down - SIGINT received\n");
 
     /* LOGGER */
-    request_log("INFO", "Waiting for logger process to shutdown");
+    //request_log("INFO", "Waiting for system manager process to shutdown");
     printf("WAITING FOR LOGGER PROCESS TO SHUTDOWN\n");
 
     // close logger process as last for all the logs to be logged
-    if(kill(logger_pid, SIGINT) == -1){
+    if(kill(sys_manager_pid, SIGINT) == -1){
         perror("kill sigint");
-        kill(logger_pid, SIGKILL);
     }
 
     //wait for logger process to finish
-    waitpid(logger_pid, 0, 0);
+    waitpid(sys_manager_pid, 0, 0);
 
     unload_config_file();
     exit(0);
@@ -40,7 +39,7 @@ int main(int argc, char *argv[]){
         exit(-1);
     }
 
-    request_log("INFO", "HOME IOT BOOTING UP");
+    //request_log("INFO", "HOME IOT BOOTING UP");
 
     load_config_file(argv[1]);
   
@@ -61,12 +60,12 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    if ((logger_pid = fork()) == 0){
-        init_logger();
-    }
-    else if((sys_manager_pid = fork()) == 0){
+    if((sys_manager_pid = fork()) == 0){
         init_sys_manager();
     }
-    waitpid(logger_pid, 0, 0);
+
+    printf("sys_manager_pid: %d\n", sys_manager_pid);
+    waitpid(sys_manager_pid, 0, 0);
+
     return 0;
 };
