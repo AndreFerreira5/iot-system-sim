@@ -1,5 +1,4 @@
 #include "string.h"
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -34,8 +33,4 @@ char* skip_delimiter(char* start, const char* delimiter){
         start++;
     }
     return NULL;
-}
-
-int write_string_to_ring(char *start){
-
 }

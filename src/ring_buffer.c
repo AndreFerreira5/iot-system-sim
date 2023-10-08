@@ -1,9 +1,8 @@
 #include "ring_buffer.h"
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include <unistd.h>
-#include <pthread.h>
+#include <errno.h>
 
 ring_buffer_t create_ring_buffer(){
     ring_buffer_t  rbuffer;
@@ -39,11 +38,12 @@ void put_ring(ring_buffer_t *rbuffer, char *string){
         *(rbuffer->buffer + buffer_offset) = *(string+i);
     }
 
-    // write # at the end of the ring buffer to alert signal end of string
+    // write # at the end of the ring buffer to signal end of string
     *(rbuffer->buffer + ((rbuffer->head + str_len) % MAX_BUFFER_SIZE)) = '#';
 
     // update ring buffer head (increment length of copied string + 1 for the #)
-    rbuffer->head = str_len+1;
+    rbuffer->head = (rbuffer->head + str_len + 1) % MAX_BUFFER_SIZE;
+    //rbuffer->head += str_len+1 % MAX_BUFFER_SIZE;
 
     // posting semaphore so reader (logger process) knows there is one more request on the buffer
     sem_post(&rbuffer->requests_count);
@@ -55,12 +55,17 @@ char* get_ring(ring_buffer_t *rbuffer){
     // check if there are requests on the buffer, if not wait (for a sem_post from the writer)
     sem_wait(&rbuffer->requests_count);
 
+
     /* calculate the string length by iterating until # (end of string) is found */
     size_t str_len = 0;
     int i = 0;
-    while(*(rbuffer->buffer + rbuffer->tail + i) != '#'){
+
+    // calculating the length of the string to read (until # is found)
+    size_t buffer_offset = (rbuffer->tail + i) % MAX_BUFFER_SIZE;
+    while(*(rbuffer->buffer + buffer_offset) != '#'){
         str_len++;
         i++;
+        buffer_offset = (rbuffer->tail + i) % MAX_BUFFER_SIZE;
     }
     str_len++; // for the '\0'
 
@@ -68,14 +73,15 @@ char* get_ring(ring_buffer_t *rbuffer){
     char *extracted_string = (char*)malloc(str_len*sizeof(char));
     // copy char by char from ring buffer to malloc'd string
     for(i=0; i<str_len; i++){
-        size_t buffer_offset = (rbuffer->tail + i) % MAX_BUFFER_SIZE;
+        buffer_offset = (rbuffer->tail + i) % MAX_BUFFER_SIZE;
         extracted_string[i] = *(rbuffer->buffer + buffer_offset);
     }
-    // set string terminator
-    extracted_string[str_len] = '\0';
+    // set string terminator at the # position
+    extracted_string[str_len-1] = '\0';
 
     // update ring buffer tail by incrementing it with string length (and the #)
-    rbuffer->tail += str_len;
+    // and wrapping around if end is reached
+    rbuffer->tail = (rbuffer->tail + str_len) % MAX_BUFFER_SIZE;
 
     // finally return the string extracted from the ring buffer
     return extracted_string;
