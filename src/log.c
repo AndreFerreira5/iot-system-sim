@@ -1,47 +1,28 @@
 #include "log.h"
 #include "string.h"
+#include "ring_buffer.h"
+#include "home_iot.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <errno.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <signal.h>
-#include <fcntl.h>
 
-#define BUFFER_LEN 1024
 #define DELIMITER "#"
+#define SEPARATOR "|"
 
 // time structure
 time_t t;
 struct tm* tm_info;
 
-// log pipe file descriptor for global access
-int log_pipe_fd;
-
 FILE* log_file;
 
-void sigint_handler();
-void error_handler();
+temp_log_buffer_t temp_log_buffer;
 
-void create_fifo(){
-    if(mkfifo(LOG_PIPE, 0666)<0 && errno != EEXIST){
-        printf("ERROR CREATING LOG_PIPE\n");
-        close(log_pipe_fd);
-        fclose(log_file);
-        exit(1);
-    }
-}
-
-void remove_fifo(){
-    if(unlink(LOG_PIPE) == -1){
-        printf("ERROR UNLINKING LOG_PIPE\n");
-        close(log_pipe_fd);
-        fclose(log_file);
-        exit(1);
-    }
-}
+void log_sigint_handler();
+void log_error_handler();
 
 char* get_current_time(){
     // get the current date
@@ -49,88 +30,132 @@ char* get_current_time(){
     tm_info = localtime(&t);
 
     static char datetime[40];
-    strftime(datetime, 40, "[%d-%m-%Y %H:%M:%S] ", tm_info);
-
+    strftime(datetime, 40, "%d-%m-%Y %H:%M:%S", tm_info);
     return datetime;
 }
 
-void request_log(char* type, char* message){
-    int log_fd = open(LOG_PIPE, O_WRONLY);
-    //if pipe fails to open
-    if(log_fd == -1){
-        perror("pipe open");
-        return;
+int rbuffer_is_initialized(){
+    if(ring_buffer_shmem == NULL){
+        return 0;
     }
+    return 1;
+}
 
-    size_t log_bytes = strlen(type) + strlen(message) + 1 + 1 + 1; //strlen from type and message + # + # + \0
+void request_log(char* type, char* message){
+    // calculate length of the string to be written to ring buffer (type + 1 (| to separate) + message)
+    size_t str_len = strlen(type) + strlen(message) + 1;
+    char str[str_len];
+    // join the string
+    snprintf(str, str_len, "%s|%s", type, message);
+    // write string to ring buffer
+    put_ring(&ring_buffer_shmem->ring_buffer, str);
+}
 
-    char buffer[log_bytes];
-    // assemble pipe message
-    snprintf(buffer, log_bytes, "#%s#%s", type, message);
-    printf("SENT MSG: %s\n", buffer);
-    // send message to pipe
-    write(log_fd, buffer, log_bytes);
-    // close pipe
-    close(log_fd);
+void request_log_safe(char* type, char* message){
+    if(rbuffer_is_initialized()){
+        // flush any logs from the temporary buffer first
+        printf("temp_log_buffer.count: %zu\n", temp_log_buffer.count);
+        for(size_t i = 0; i < temp_log_buffer.count; i++){
+            request_log(temp_log_buffer.types[i], temp_log_buffer.messages[i]);
+            free(temp_log_buffer.types[i]);
+            free(temp_log_buffer.messages[i]);
+        }
+        //free(temp_log_buffer.types);
+        //free(temp_log_buffer.messages);
+        temp_log_buffer.count = 0;
+        temp_log_buffer.capacity = 0;
+
+        // log the current request to the ring buffer
+        request_log(type, message);
+    } else {
+        // if temp log buffer is full, reallocate
+        if(temp_log_buffer.count == temp_log_buffer.capacity){
+            temp_log_buffer.capacity = (temp_log_buffer.capacity == 0) ? 64 : temp_log_buffer.capacity * 2;
+            temp_log_buffer.types = realloc(temp_log_buffer.types, temp_log_buffer.capacity * sizeof(char*));
+            temp_log_buffer.messages = realloc(temp_log_buffer.messages, temp_log_buffer.capacity * sizeof(char*));
+            if(!temp_log_buffer.types || !temp_log_buffer.messages){
+                printf("Error allocating memory\n");
+                kill(getpid(), SIGINT);
+                return;
+            }
+        }
+
+        // store the log in the temp buffer
+        temp_log_buffer.types[temp_log_buffer.count] = strdup(type);
+        temp_log_buffer.messages[temp_log_buffer.count] = strdup(message);
+        if (!temp_log_buffer.types[temp_log_buffer.count] || !temp_log_buffer.messages[temp_log_buffer.count]) {
+            printf("Error allocating memory\n");
+            kill(getpid(), SIGINT);
+            return;
+        }
+        temp_log_buffer.count++;
+    }
 }
 
 void write_log(char* type, char* message){
     char* datetime = get_current_time();
-    fprintf(log_file, "%s [%s] %s\n", datetime, type, message);
-    printf("LOG WRITTEN\n");
+    int result = fprintf(log_file, "[%s] [%s] %s\n", datetime, type, message);
+    if(result > 0){
+        printf("LOG WRITTEN\n");
+        return;
+    }
+    printf("ERROR - LOG NOT WRITTEN\n");
 }
 
 void process_remaining_logs(){
-    int log_fd = open(LOG_PIPE, O_RDONLY | O_NONBLOCK);
-    //if pipe fails to open
-    if(log_fd == -1){
-        perror("pipe open");
-        return;
-    }
+    int requests_count;
+    // get semaphore value that represents the number of requests on the buffer
+    sem_getvalue(&ring_buffer_shmem->ring_buffer.requests_count, &requests_count);
 
-    ssize_t bytes_read = 1;
+    // get x requests from the ring buffer
+    for(int i=0; i<requests_count; i++){
+        // get string from ring buffer
+        char *extracted_string = get_ring(&ring_buffer_shmem->ring_buffer);
+        // preserve original pointer to malloc'd extracted string for later freeing
+        void* orig_string_ptr = extracted_string;
 
-    // read log requests until there are no more
-    while(bytes_read > 0){
-        char *buffer = (char*)malloc(BUFFER_LEN*sizeof(char));
-        if(buffer == NULL){
-            perror("malloc");
-            return;
+        // extract string before the | char (type)
+        char *type = extract_string(extracted_string, SEPARATOR);
+        if (type == NULL){
+            printf("Couldn't extract string - skipping request\n");
+            continue;
         }
-        void* orig_buffer_ptr = buffer;
-        bytes_read = read(log_pipe_fd, buffer, BUFFER_LEN);
 
-        while(*buffer == '#'){
-            buffer = skip_delimiter(buffer, DELIMITER);
-            char* type = extract_string(buffer, DELIMITER);
-            buffer = skip_delimiter(buffer, DELIMITER);
-
-            write_log(type, buffer);
+        // point to string right after the | char (message)
+        extracted_string = skip_delimiter(extracted_string, SEPARATOR);
+        if (type == NULL){
+            printf("Couldn't skip delimiter - skipping request\n");
             free(type);
+            continue;
         }
-        free(orig_buffer_ptr);
-    }
 
-    close(log_fd);
+        // write extracted strings to log file
+        write_log(type, extracted_string);
+
+        // free the malloc'd returned string by the extract_string()
+        free(type);
+        // free the original pointer of the extracted string from the ring buffer
+        free(orig_string_ptr);
+    }
+    fprintf(log_file, "BYE BYE");
 }
 
-void sigint_handler(){
-    close(log_pipe_fd);
+void log_sigint_handler(){
     request_log("INFO", "Logger process shutting down - SIGINT received");
     printf("Logger process shutting down - SIGINT received\n");
     process_remaining_logs();
-    remove_fifo();
+    fflush(log_file);
     fclose(log_file);
     exit(0);
 }
 
-void error_handler(){
-    close(log_pipe_fd);
+void log_error_handler(){
     request_log("ERROR", "Logger process shutting down - Internal Error");
     printf("Logger process shutting down - Internal Error\n");
     process_remaining_logs();
-    remove_fifo();
+    fflush(log_file);
     fclose(log_file);
+    kill(getppid(), SIGINT);
     exit(1);
 }
 
@@ -162,47 +187,50 @@ _Noreturn void init_logger(){
 
     // create sigaction struct
     struct sigaction sa;
-    sa.sa_handler = sigint_handler;
+    sa.sa_handler = log_sigint_handler;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
-    // register the sigterm signal handler
+    // register the sigint signal handler
     if(sigaction(SIGINT, &sa, NULL) == -1){
         printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
         exit(1);
     }
 
-    create_fifo();
-
     char* log_file_name = generate_log_name();
-
     // open log file for writing
     log_file = fopen(log_file_name, "w");
-
-    // open log pipe for reading and writing to prevent read() to always return on EOF
-    // effectively causing a busy wait
-    log_pipe_fd = open(LOG_PIPE, O_RDWR);
-    if(log_pipe_fd == -1){
-        perror("pipe open");
-        error_handler();
+    if(log_file == NULL){
+        printf("ERROR OPENING LOG FILE\n");
+        log_error_handler();
     }
 
     while(1){
+        char *extracted_string = get_ring(&ring_buffer_shmem->ring_buffer);
+        // preserve original pointer to malloc'd extracted string for later freeing
+        void* orig_string_ptr = extracted_string;
 
-        char *buffer = (char*)malloc(BUFFER_LEN*sizeof(char));
-        void* orig_buffer_ptr = buffer;
-        read(log_pipe_fd, buffer, BUFFER_LEN);
-
-        while(*buffer == '#'){
-            buffer = skip_delimiter(buffer, DELIMITER);
-            char* type = extract_string(buffer, DELIMITER);
-            buffer = skip_delimiter(buffer, DELIMITER);
-
-            write_log(type, buffer);
-            free(type);
+        // extract string before the | char (type)
+        char *type = extract_string(extracted_string, SEPARATOR);
+        if (type == NULL){
+            printf("Couldn't extract string - skipping request\n");
+            continue;
         }
-        free(orig_buffer_ptr);
 
+        // point to string right after the | char (message)
+        extracted_string = skip_delimiter(extracted_string, SEPARATOR);
+        if (type == NULL){
+            printf("Couldn't skip delimiter - skipping request\n");
+            free(type);
+            continue;
+        }
+
+        // write extracted strings to log file
+        write_log(type, extracted_string);
+
+        // free the malloc'd returned string by the extract_string()
+        free(type);
+        // free the original pointer of the extracted string from the ring buffer
+        free(orig_string_ptr);
     }
-
 }

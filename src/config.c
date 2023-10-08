@@ -95,6 +95,7 @@ void load_config_file(char* config_file){
 
     // delete the JSON object
     cJSON_Delete(config_json);
+    //request_log("INFO", "CONFIG FILE LOADED INTO MEMORY");
 }
 
 
