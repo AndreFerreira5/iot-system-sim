@@ -55,7 +55,6 @@ void home_sigint_handler(){
 }
 
 int main(int argc, char *argv[]){
-    printf("RAAAAAA\n");
     if(argc != 2){
         printf("Arguments missing!\nUsage: home_iot *config_file*\n");
         exit(-1);
