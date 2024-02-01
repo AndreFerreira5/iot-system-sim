@@ -44,7 +44,6 @@ void load_config_file(char* config_file){
         printf("ERROR READING FILE");
 
         //close program
-        free(buffer);
         exit(1);
     }
 

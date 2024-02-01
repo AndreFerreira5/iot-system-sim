@@ -49,7 +49,7 @@ _Noreturn void init_sys_manager(){
 
     while(1){
         sleep(1);
-        request_log("INFO", "This is an example log!");
+        request_log("LOG", "This is an example log!");
         //printf("ring buffer: %s\n", ring_buffer_shmem->ring_buffer.buffer);
     }
 

@@ -55,7 +55,6 @@ void home_sigint_handler(){
 }
 
 int main(int argc, char *argv[]){
-
     if(argc != 2){
         printf("Arguments missing!\nUsage: home_iot *config_file*\n");
         exit(-1);
@@ -79,7 +78,7 @@ int main(int argc, char *argv[]){
     // create ring buffer
     ring_buffer_shmem->ring_buffer = create_ring_buffer();
 
-    request_log("INFO", "HOME IOT BOOTING UP");
+    request_log_safe("INFO", "HOME IOT BOOTING UP");
 
     load_config_file(argv[1]);
   

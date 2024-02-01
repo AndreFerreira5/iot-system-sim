@@ -41,6 +41,17 @@ int rbuffer_is_initialized(){
     return 1;
 }
 
+
+/**
+ * @brief Requests a log.
+ *
+ * This function requests a log by putting the log info
+ * on the ring buffer.
+ *
+ * @param type Type of log.
+ * @param message Log message.
+ * @return void.
+ */
 void request_log(char* type, char* message){
     // calculate length of the string to be written to ring buffer (type + 1 (| to separate) + message)
     size_t str_len = strlen(type) + strlen(message) + 1;
