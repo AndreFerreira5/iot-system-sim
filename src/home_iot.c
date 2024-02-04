@@ -2,6 +2,7 @@
 #include "log.h"
 #include "config.h"
 #include "system_manager.h"
+#include "alerts_watcher.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -10,7 +11,7 @@
 #include <sys/mman.h>
 #include "worker.h"
 
-pid_t sys_manager_pid, logger_pid;
+pid_t sys_manager_pid, logger_pid, alerts_watcher_pid;
 shared_ring_buffer *ring_buffer_shmem;
 size_t rbuffer_shmem_size;
 
@@ -55,6 +56,26 @@ void home_sigint_handler(){
     exit(0);
 }
 
+void setup_sigint_handler(){
+    // create sigaction struct
+    struct sigaction sa;
+    sa.sa_handler = home_sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    // register the sigint signal handler
+    if(sigaction(SIGINT, &sa, NULL) == -1){
+        printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
+        exit(1);
+    }
+    // register the sigterm signal handler
+    if(sigaction(SIGTERM, &sa, NULL) == -1){
+        printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
+        exit(1);
+    }
+}
+
+
 int main(int argc, char *argv[]){
     if(argc != 2){
         printf("Arguments missing!\nUsage: home_iot *config_file*\n");
@@ -82,30 +103,20 @@ int main(int argc, char *argv[]){
     request_log_safe("INFO", "HOME IOT BOOTING UP");
 
     load_config_file(argv[1]);
-  
-    // create sigaction struct
-    struct sigaction sa;
-    sa.sa_handler = home_sigint_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
 
-    // register the sigint signal handler
-    if(sigaction(SIGINT, &sa, NULL) == -1){
-        printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
-        exit(1);
-    }
-    // register the sigterm signal handler
-    if(sigaction(SIGTERM, &sa, NULL) == -1){
-        printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
-        exit(1);
-    }
 
     if((sys_manager_pid = fork()) == 0){
         init_sys_manager();
     }
     printf("sys_manager_pid: %d\n", sys_manager_pid);
 
+    if((alerts_watcher_pid = fork()) == 0){
+        init_alerts_watcher();
+    }
+
+
     waitpid(sys_manager_pid, 0, 0);
+    waitpid(alerts_watcher_pid, 0, 0);
     waitpid(logger_pid, 0, 0);
 
     return 0;

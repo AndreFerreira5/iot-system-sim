@@ -16,7 +16,7 @@ void load_config_file(char* config_file){
     // open the configuration file for reading
     fp = fopen(config_file, "r");
     if (fp == NULL){
-        request_log("ERROR", "Unable to open config file");
+        request_log_safe("ERROR", "Unable to open config file");
         printf("UNABLE TO OPEN THE CONFIG FILE\n");
 
         // close program
@@ -32,7 +32,7 @@ void load_config_file(char* config_file){
     buffer = (char*)malloc(file_size + 1); // +1 for null temrinator
     if(buffer == NULL){
         fclose(fp);
-        request_log("ERROR", "Couldn't allocate memory for buffer");
+        request_log_safe("ERROR", "Couldn't allocate memory for buffer");
         printf("ERROR ALLOCATING MEMORY");
         exit(1);
     }
@@ -40,7 +40,7 @@ void load_config_file(char* config_file){
     if(fread(buffer, 1, file_size, fp) != file_size){
         fclose(fp);
         free(buffer);
-        request_log("ERROR", "Couldn't read config file");
+        request_log_safe("ERROR", "Couldn't read config file");
         printf("ERROR READING FILE");
 
         //close program
@@ -56,11 +56,11 @@ void load_config_file(char* config_file){
     cJSON *config_json = cJSON_Parse(buffer);
     free(buffer); // free the allocated buffer
     if (config_json == NULL){
-        request_log("ERROR", "Couldn't parse config file");
+        request_log_safe("ERROR", "Couldn't parse config file");
         printf("ERROR PARSING CONFIGURATION FILE\n");
         const char* error_ptr = cJSON_GetErrorPtr();
         if(error_ptr != NULL){
-            request_log("ERROR", (char*)error_ptr);
+            request_log_safe("ERROR", (char*)error_ptr);
             printf("ERROR: %s\n", error_ptr);
         }
         cJSON_Delete(config_json);
@@ -77,7 +77,7 @@ void load_config_file(char* config_file){
     config_params_arr = (struct ConfigParam*)malloc(entries_num * sizeof(struct ConfigParam));
     if(config_params_arr == NULL){
         cJSON_Delete(config_json);
-        request_log("ERROR", "Couldn't allocate memory for config parameters");
+        request_log_safe("ERROR", "Couldn't allocate memory for config parameters");
         printf("ERROR ALLOCATING MEMORY FOR CONFIG PARAMS\n");
 
         // close program
