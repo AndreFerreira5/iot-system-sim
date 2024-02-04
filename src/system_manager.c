@@ -1,6 +1,5 @@
 #include "system_manager.h"
 #include "log.h"
-#include "ring_buffer.h"
 #include "max_heap.h"
 #include "config.h"
 #include "worker.h"
@@ -9,7 +8,6 @@
 #include <signal.h>
 #include <unistd.h>
 #include <wait.h>
-#include <pthread.h>
 
 void sys_sigint_handler(){
 
@@ -67,10 +65,6 @@ _Noreturn void init_sys_manager(){
             init_worker();
         }
     }
-
-
-
-
 
     // wait for all worker processes
     for(size_t i=0; i<num_workers; i++) {
