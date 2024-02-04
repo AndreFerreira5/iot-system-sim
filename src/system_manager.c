@@ -3,6 +3,7 @@
 #include "max_heap.h"
 #include "config.h"
 #include "worker.h"
+#include "console_reader.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -48,7 +49,7 @@ _Noreturn void init_sys_manager(){
 
     /* Console Reader thread creation */
     pthread_t console_reader_id;
-    pthread_create();
+    pthread_create(&console_reader_id, NULL, init_console_reader, NULL);
 
     /* Task Heap creation */
     int heap_capacity = get_config_value("HEAP_CAPACITY");
@@ -71,6 +72,10 @@ _Noreturn void init_sys_manager(){
             init_worker();
         }
     }
+
+
+    // wait for console reader thread
+    pthread_join(console_reader_id, NULL);
 
     // wait for all worker processes
     for(size_t i=0; i<num_workers; i++) {
