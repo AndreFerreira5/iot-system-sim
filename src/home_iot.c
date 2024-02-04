@@ -105,17 +105,6 @@ int main(int argc, char *argv[]){
     }
     printf("sys_manager_pid: %d\n", sys_manager_pid);
 
-    size_t num_workers = get_config_value("N_WORKERS");
-    pid_t workers_pid[num_workers];
-    for(size_t i=0; i<num_workers; i++) {
-        if ((workers_pid[i] = fork()) == 0) {
-            init_worker();
-        }
-    }
-
-    for (size_t i=0; i<num_workers ; i++) {
-        waitpid(workers_pid[i], 0, 0);
-    }
     waitpid(sys_manager_pid, 0, 0);
     waitpid(logger_pid, 0, 0);
 
