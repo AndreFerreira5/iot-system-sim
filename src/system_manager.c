@@ -35,8 +35,9 @@ void setup_sigint_handler(){
 
     // register the sigint signal handler
     if(sigaction(SIGINT, &sa, NULL) == -1){
+        request_log("ERROR", "Couldn't register SIGINT signal handler");
         printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
-        exit(1);
+        sys_error_handler();
     }
 }
 
