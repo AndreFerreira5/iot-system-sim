@@ -23,10 +23,10 @@
      inkscape:pagecheckerboard="false"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="0.35355339"
-     inkscape:cx="70.710678"
-     inkscape:cy="503.46003"
-     inkscape:window-width="1762"
+     inkscape:zoom="0.70710678"
+     inkscape:cx="490.73211"
+     inkscape:cy="356.38182"
+     inkscape:window-width="1876"
      inkscape:window-height="996"
      inkscape:window-x="0"
      inkscape:window-y="0"
@@ -1047,7 +1047,7 @@
          id="tspan9"
          style="stroke-width:0.1"
          x="126.70591"
-         y="94.379814"></tspan></text>
+         y="94.379814" /></text>
     <text
        xml:space="preserve"
        style="font-size:1.84747px;fill:#000000;stroke-width:0.153955"
@@ -1095,15 +1095,15 @@
     <path
        id="path13"
        d="M 184.74684,116.74332 H 159.0117 v -10.55793 h 25.73514 z"
-       style="fill:#ffffff;stroke:#39b54a;stroke-width:0.352778;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1" />
+       style="fill:#ffffff;stroke:#00aeef;stroke-width:0.352778;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1" />
     <path
        id="path13-8"
        d="m 187.64099,119.94392 h -25.73514 v -10.55793 h 25.73514 z"
-       style="fill:#ffffff;stroke:#39b54a;stroke-width:0.352778;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1" />
+       style="fill:#ffffff;stroke:#00aeef;stroke-width:0.352778;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1" />
     <path
        id="path13-8-4"
        d="M 190.53544,123.20561 H 164.8003 v -10.55792 h 25.73514 z"
-       style="fill:#ffffff;stroke:#39b54a;stroke-width:0.352778;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1" />
+       style="fill:#ffffff;stroke:#00aeef;stroke-width:0.352778;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:10;stroke-dasharray:none;stroke-opacity:1" />
     <path
        id="path13-8-4-0"
        d="M 122.24863,86.393549 H 90.080375 V 74.14956 h 32.168255 z"
