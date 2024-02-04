@@ -8,6 +8,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <wait.h>
+#include <pthread.h>
 
 void sys_sigint_handler(){
 
@@ -44,6 +45,10 @@ void setup_sigint_handler(){
 _Noreturn void init_sys_manager(){
     request_log("INFO", "SYSTEM MANAGER BOOTING UP");
 
+
+    /* Console Reader thread creation */
+    pthread_t console_reader_id;
+    pthread_create();
 
     /* Task Heap creation */
     int heap_capacity = get_config_value("HEAP_CAPACITY");
