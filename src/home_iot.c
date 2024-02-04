@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <wait.h>
 #include <sys/mman.h>
+#include "worker.h"
 
 pid_t sys_manager_pid, logger_pid;
 shared_ring_buffer *ring_buffer_shmem;
@@ -102,8 +103,8 @@ int main(int argc, char *argv[]){
     if((sys_manager_pid = fork()) == 0){
         init_sys_manager();
     }
-
     printf("sys_manager_pid: %d\n", sys_manager_pid);
+
     waitpid(sys_manager_pid, 0, 0);
     waitpid(logger_pid, 0, 0);
 
