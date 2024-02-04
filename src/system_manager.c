@@ -1,12 +1,15 @@
 #include "system_manager.h"
-#include "queue.h"
 #include "log.h"
 #include "ring_buffer.h"
+#include "bin_heap.h"
+#include "config.h"
+#include "worker.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
 #include <wait.h>
+#include <pthread.h>
 
 void sys_sigint_handler(){
 
@@ -41,16 +44,18 @@ _Noreturn void init_sys_manager(){
     }
 
 
-    // set internal queue size
-    set_queue_size();
 
-    // create internal queue to hold tasks (change this)
-    Task *INTERNAL_QUEUE;
+    size_t num_workers = get_config_value("N_WORKERS");
+    pid_t workers_pid[num_workers];
+    for(size_t i=0; i<num_workers; i++) {
+        if ((workers_pid[i] = fork()) == 0) {
+            init_worker();
+        }
+    }
 
-    while(1){
-        sleep(1);
-        request_log("LOG", "This is an example log!");
-        //printf("ring buffer: %s\n", ring_buffer_shmem->ring_buffer.buffer);
+    // wait for all worker processes
+    for(size_t i=0; i<num_workers; i++) {
+        waitpid(workers_pid[i], 0, 0);
     }
 
     exit(0);
