@@ -2,9 +2,12 @@
 #include "log.h"
 #include "config.h"
 #include "system_manager.h"
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <wait.h>
 #include <sys/mman.h>
@@ -13,6 +16,8 @@
 pid_t sys_manager_pid, logger_pid;
 shared_ring_buffer *ring_buffer_shmem;
 size_t rbuffer_shmem_size;
+const char* sensorFIFO = "/tmp/SENSOR_PIPE";
+int sensorFIFODesc;
 
 void home_sigint_handler(){
 
@@ -50,6 +55,9 @@ void home_sigint_handler(){
 
     // unmap shared memory
     munmap(ring_buffer_shmem, rbuffer_shmem_size);
+
+    close(sensorFIFODesc);
+    unlink(sensorFIFO);
 
     unload_config_file();
     exit(0);
@@ -97,6 +105,12 @@ int main(int argc, char *argv[]){
     // register the sigterm signal handler
     if(sigaction(SIGTERM, &sa, NULL) == -1){
         printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
+        exit(1);
+    }
+
+    /* SENSOR_PIPE creation */
+    if(mkfifo(sensorFIFO, 0666) == -1){
+        perror("mkfifo sensorFIFO");
         exit(1);
     }
 
