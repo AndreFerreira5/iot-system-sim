@@ -81,19 +81,26 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
     }
     while(1){
         int val = (rand() % (max - min + 1)) + min;
-        char *sensor_info = malloc(strlen(sensor_id) + strlen(key) + strlen("#") + sizeof(int) + 1);
-        sprintf(sensor_info, "#%s#%s#%d", sensor_id, key, val);
-        printf("INFO SENT: %s\n", sensor_info);
 
-        int n = write(fd,sensor_info, strlen(sensor_info));
-        if(n == -1){
-            printf("ERROR WRITING TO PIPE\n");
+        int required_size = snprintf(NULL, 0, "#%s#%s#%d", sensor_id, key, val) + 1;
+        char* sensor_info = malloc(required_size);
+        if (!sensor_info) {
+            perror("Failed to allocate memory for sensor_info");
             close(fd);
-            free(sensor_info);
-            free(sensor_id);
-            free(key);
             exit(1);
         }
+
+        snprintf(sensor_info, required_size, "#%s#%s#%d", sensor_id, key, val);
+        printf("INFO SENT: %s\n", sensor_info);
+
+        ssize_t n = write(fd, sensor_info, strlen(sensor_info));
+        if (n == -1) {
+            perror("ERROR WRITING TO PIPE");
+            free(sensor_info);
+            close(fd);
+            exit(1);
+        }
+
         free(sensor_info);
         sleep(interval); //sleep for the provided interval before sending info
     }
