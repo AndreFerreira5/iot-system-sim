@@ -82,7 +82,7 @@ int main(int argc, char *argv[]){
     request_log_safe("INFO", "HOME IOT BOOTING UP");
 
     load_config_file(argv[1]);
-  
+
     // create sigaction struct
     struct sigaction sa;
     sa.sa_handler = home_sigint_handler;
