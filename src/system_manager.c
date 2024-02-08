@@ -18,7 +18,7 @@ void sys_sigint_handler(){
 }
 
 void sys_error_handler(){
-    request_log("INFO", "System Manager shutting down - SIGINT received");
+    request_log("INFO", "System Manager shutting down - Internal Error");
     printf("System Manager shutting down - Internal Error\n");
 
     // signal parent process (home_iot) to stop

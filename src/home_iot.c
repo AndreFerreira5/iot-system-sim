@@ -2,6 +2,8 @@
 #include "log.h"
 #include "config.h"
 #include "system_manager.h"
+#include "worker.h"
+#include "shared_utils.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,12 +13,10 @@
 #include <unistd.h>
 #include <wait.h>
 #include <sys/mman.h>
-#include "worker.h"
 
 pid_t sys_manager_pid, logger_pid;
 shared_ring_buffer *ring_buffer_shmem;
 size_t rbuffer_shmem_size;
-const char* sensorFIFO = "/tmp/SENSOR_PIPE";
 int sensorFIFODesc;
 
 void home_sigint_handler(){
@@ -106,6 +106,14 @@ int main(int argc, char *argv[]){
     if(sigaction(SIGTERM, &sa, NULL) == -1){
         printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
         exit(1);
+    }
+
+    int get_config_result;
+    if((get_config_result = get_config_value("SENSOR_PIPE", &sensorFIFO, STRING)) != 1
+        || sensorFIFO == NULL){
+        if(get_config_result == 0) request_log_safe("ERROR", "SENSOR_PIPE config value type mismatch (STRING expected)");
+        else if(get_config_result == -1) request_log_safe("ERROR", "SENSOR_PIPE config key not found");
+        //home_iot_error_handler(); //TODO Implement this
     }
 
     /* SENSOR_PIPE creation */
