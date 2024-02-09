@@ -1,4 +1,5 @@
 #include "sensor.h"
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -75,7 +76,7 @@ void validate_fifo(){
 
 _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min, int max){
     if((fd = open(sensorFIFO, O_WRONLY)) < 0){ //Open sensor pipe to write data
-        printf("ERROR OPENING SENSOR PIPE FOR WRITING (SENSOR PROCESS)\n");
+        fprintf(stderr, "ERROR OPENING SENSOR PIPE FOR WRITING\n");
         exit(1);
     }
     while(1){
@@ -108,14 +109,51 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
 
 int main(int argc, char* argv[]){
 
-    if(argc != 6){
-        if(argc < 6)
-            fprintf(stdout, "Arguments missing!\nUsage: sensor *sensorID* *interval (seconds)* *key* *min value* *max value*\n");
+    if(argc != 7){
+        if(argc < 7)
+            fprintf(stdout, "Arguments missing!\nUsage: sensor *sensorID* *interval (seconds)* *key* *min value* *max value* *config file*\n");
         else
             fprintf(stdout, "Too many arguments!\n");
         exit(1);
     }
 
+    int config_file_load_result = load_config_file(argv[6]);
+    if(config_file_load_result != SUCCESS_CONFIG_FILE_LOAD){
+        switch (config_file_load_result) {
+            case ERROR_OPEN_CONFIG_FILE:
+                fprintf(stderr, "UNABLE TO OPEN THE CONFIG FILE\n");
+                break;
+            case ERROR_ALLOCATE_BUFFER:
+                fprintf(stderr, "ERROR ALLOCATING MEMORY");
+                break;
+            case ERROR_READ_CONFIG_FILE:
+                fprintf(stderr, "ERROR READING FILE");
+                break;
+            case ERROR_PARSE_CONFIG_FILE:
+                fprintf(stderr, "ERROR PARSING CONFIGURATION FILE\n");
+                break;
+            case ERROR_ALLOCATE_CONFIG_PARAMS:
+                fprintf(stderr, "ERROR ALLOCATING MEMORY FOR CONFIG PARAMS\n");
+                break;
+            default:
+                fprintf(stderr, "UNKNOWN CONFIGURATION ERROR OCCURED\n");
+                break;
+        }
+        exit(1);
+    }
+    fprintf(stdout, "CONFIG FILE LOADED INTO MEMORY\n");
+
+    int result;
+    if((result = get_config_value("SENSOR_PIPE", &sensorFIFO, STRING)) != 1){
+        if(result == 0) fprintf(stderr, "SENSOR_PIPE config value type mismatch (STRING expected)\n");
+        else if(result == -1) fprintf(stderr, "SENSOR_PIPE config key not found\n");
+        exit(1);
+    }
+    if(sensorFIFO == NULL){
+        fprintf(stderr, "SENSOR_PIPE config value is NULL\n");
+        exit(1);
+    }
+    fprintf(stdout, "Sensor FIFO location: %s\n", sensorFIFO);
 
     srand(time(0));
 
@@ -127,7 +165,6 @@ int main(int argc, char* argv[]){
 
     validate_id(sensorID);
     validate_key(key);
-    validate_fifo();
 
     simulate_sensor(sensorID, interval, key, min_value, max_value);
 }
