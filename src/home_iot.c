@@ -81,7 +81,54 @@ int main(int argc, char *argv[]){
 
     request_log_safe("INFO", "HOME IOT BOOTING UP");
 
-    load_config_file(argv[1]);
+    int config_file_load_result = load_config_file(argv[1]);
+    if(config_file_load_result != SUCCESS_CONFIG_FILE_LOAD){
+        switch (config_file_load_result) {
+            case ERROR_OPEN_CONFIG_FILE:
+                request_log_safe("ERROR", "Unable to open config file");
+                fprintf(stderr, "UNABLE TO OPEN THE CONFIG FILE\n");
+                break;
+            case ERROR_ALLOCATE_BUFFER:
+                request_log_safe("ERROR", "Couldn't allocate memory for buffer");
+                fprintf(stderr, "ERROR ALLOCATING MEMORY");
+                break;
+            case ERROR_READ_CONFIG_FILE:
+                request_log_safe("ERROR", "Couldn't read config file");
+                fprintf(stderr, "ERROR READING FILE");
+                break;
+            case ERROR_PARSE_CONFIG_FILE:
+                request_log_safe("ERROR", "Couldn't parse config file");
+                fprintf(stderr, "ERROR PARSING CONFIGURATION FILE\n");
+                break;
+            case ERROR_ALLOCATE_CONFIG_PARAMS:
+                request_log_safe("ERROR", "Couldn't allocate memory for config parameters");
+                fprintf(stderr, "ERROR ALLOCATING MEMORY FOR CONFIG PARAMS\n");
+                break;
+            default:
+                request_log_safe("ERROR", "Unknown configuration error occurred");
+                fprintf(stderr, "UNKNOWN CONFIGURATION ERROR OCCURED\n");
+                break;
+        }
+
+        // destroy ring buffer semaphores
+        sem_destroy(&ring_buffer_shmem->ring_buffer.ring_buffer_sem);
+        sem_destroy(&ring_buffer_shmem->ring_buffer.requests_count);
+
+        // unmap shared memory
+        munmap(ring_buffer_shmem, rbuffer_shmem_size);
+
+
+        if(kill(logger_pid, SIGINT) == -1){
+            perror("kill sigint");
+        }
+        //wait for logger process to finish
+        waitpid(logger_pid, 0, 0);
+        printf("logger process shuted down\n");
+
+        exit(1);
+    }
+    request_log_safe("INFO", "CONFIG FILE LOADED INTO MEMORY");
+    fprintf(stdout, "CONFIG FILE LOADED INTO MEMORY\n");
 
     // create sigaction struct
     struct sigaction sa;

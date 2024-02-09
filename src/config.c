@@ -1,5 +1,4 @@
 #include "config.h"
-#include "log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,7 +7,7 @@
 struct ConfigParam* config_params_arr;
 int entries_num;
 
-void load_config_file(char* config_file){
+int load_config_file(char* config_file){
     FILE *fp;
     char *buffer;
     long file_size;
@@ -16,11 +15,7 @@ void load_config_file(char* config_file){
     // open the configuration file for reading
     fp = fopen(config_file, "r");
     if (fp == NULL){
-        request_log_safe("ERROR", "Unable to open config file");
-        printf("UNABLE TO OPEN THE CONFIG FILE\n");
-
-        // close program
-        exit(1);
+        return ERROR_OPEN_CONFIG_FILE;
     }
 
     // get the configuration file size
@@ -32,19 +27,13 @@ void load_config_file(char* config_file){
     buffer = (char*)malloc(file_size + 1); // +1 for null temrinator
     if(buffer == NULL){
         fclose(fp);
-        request_log_safe("ERROR", "Couldn't allocate memory for buffer");
-        printf("ERROR ALLOCATING MEMORY");
-        exit(1);
+        return ERROR_ALLOCATE_BUFFER;
     }
 
     if(fread(buffer, 1, file_size, fp) != file_size){
         fclose(fp);
         free(buffer);
-        request_log_safe("ERROR", "Couldn't read config file");
-        printf("ERROR READING FILE");
-
-        //close program
-        exit(1);
+        return ERROR_READ_CONFIG_FILE;
     }
 
     // null-terminate the buffer
@@ -56,18 +45,8 @@ void load_config_file(char* config_file){
     cJSON *config_json = cJSON_Parse(buffer);
     free(buffer); // free the allocated buffer
     if (config_json == NULL){
-        request_log_safe("ERROR", "Couldn't parse config file");
-        printf("ERROR PARSING CONFIGURATION FILE\n");
-        const char* error_ptr = cJSON_GetErrorPtr();
-        if(error_ptr != NULL){
-            request_log_safe("ERROR", (char*)error_ptr);
-            printf("ERROR: %s\n", error_ptr);
-        }
         cJSON_Delete(config_json);
-
-
-        // close program
-        exit(1);
+        return ERROR_PARSE_CONFIG_FILE;
     }
 
     // get number of configuration keys
@@ -77,11 +56,7 @@ void load_config_file(char* config_file){
     config_params_arr = (struct ConfigParam*)malloc(entries_num * sizeof(struct ConfigParam));
     if(config_params_arr == NULL){
         cJSON_Delete(config_json);
-        request_log_safe("ERROR", "Couldn't allocate memory for config parameters");
-        printf("ERROR ALLOCATING MEMORY FOR CONFIG PARAMS\n");
-
-        // close program
-        exit(1);
+        return ERROR_ALLOCATE_CONFIG_PARAMS;
     }
 
     for(int i=0; i<entries_num; i++){
@@ -101,7 +76,7 @@ void load_config_file(char* config_file){
 
     // delete the JSON object
     cJSON_Delete(config_json);
-    request_log_safe("INFO", "CONFIG FILE LOADED INTO MEMORY");
+    return SUCCESS_CONFIG_FILE_LOAD;
 }
 
 
