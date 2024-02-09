@@ -3,7 +3,6 @@
 #include "config.h"
 #include "system_manager.h"
 #include "worker.h"
-#include "shared_utils.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +16,7 @@
 pid_t sys_manager_pid, logger_pid;
 shared_ring_buffer *ring_buffer_shmem;
 size_t rbuffer_shmem_size;
+char* sensorFIFO;
 int sensorFIFODesc;
 
 void home_sigint_handler(){

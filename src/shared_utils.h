@@ -1,6 +1,0 @@
-#ifndef IOT_SYSTEM_SIM_SHARED_UTILS_H
-#define IOT_SYSTEM_SIM_SHARED_UTILS_H
-
-extern char* sensorFIFO;
-
-#endif //IOT_SYSTEM_SIM_SHARED_UTILS_H

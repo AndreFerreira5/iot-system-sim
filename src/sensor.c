@@ -1,5 +1,4 @@
 #include "sensor.h"
-#include "shared_utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
