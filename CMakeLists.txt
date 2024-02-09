@@ -7,4 +7,7 @@ add_executable(iot-system-sim src/home_iot.c src/log.c src/log.h src/home_iot.h 
 
 add_executable(user-console src/user_console.c src/user_console.h)
 
+add_executable(sensor src/sensor.c src/sensor.h src/config.c src/config.h lib/cJSON/cJSON.c)
+
 target_include_directories(iot-system-sim PRIVATE "${CMAKE_SOURCE_DIR}/lib")
+target_include_directories(sensor PRIVATE "${CMAKE_SOURCE_DIR}/lib")

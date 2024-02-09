@@ -18,7 +18,7 @@ void sys_sigint_handler(){
 }
 
 void sys_error_handler(){
-    request_log("INFO", "System Manager shutting down - SIGINT received");
+    request_log("INFO", "System Manager shutting down - Internal Error");
     printf("System Manager shutting down - Internal Error\n");
 
     // signal parent process (home_iot) to stop
@@ -45,7 +45,13 @@ _Noreturn void init_sys_manager(){
 
 
     /* Task Heap creation */
-    int heap_capacity = get_config_value("HEAP_CAPACITY");
+    int heap_capacity;
+    int result;
+    if((result = get_config_value("HEAP_CAPACITY", &heap_capacity, INT)) != 1){ // if there's an error
+        if(result == 0) request_log("ERROR", "HEAP_CAPACITY config value type mismatch (INT expected)");
+        else if(result == -1) request_log("ERROR", "HEAP_CAPACITY config key not found");
+        sys_error_handler();
+    }
     if(heap_capacity <= 0){ // if the config value is invalid, exit
         request_log("ERROR", "HEAP_CAPACITY config value invalid (must be bigger than 0)");
         sys_error_handler();
@@ -54,7 +60,12 @@ _Noreturn void init_sys_manager(){
 
 
     /* Worker processes spawning */
-    size_t num_workers = get_config_value("NUM_WORKERS");
+    size_t num_workers;
+    if((result = get_config_value("NUM_WORKERS", &num_workers, INT)) != 1){
+        if(result == 0) request_log("ERROR", "NUM_WORKERS config value type mismatch (INT expected)");
+        else if(result == -1) request_log("ERROR", "NUM_WORKERS config key not found");
+        sys_error_handler();
+    }
     if(num_workers <= 0){
         request_log("ERROR", "NUM_WORKERS config value invalid (must be bigger than 0)");
         sys_error_handler();
