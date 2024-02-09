@@ -83,7 +83,6 @@ int load_config_file(char* config_file){
 int get_config_value(const char* key, void* value, ValueType expectedType){
     for(size_t i=0; i<entries_num; i++){
         if(strcmp(config_params_arr[i].key, key) == 0){ // if key matches
-            printf("key: %s", config_params_arr[i].key);
             // if the expected type is int and the key value is int
             if(expectedType==INT && config_params_arr->valueType==INT){
                 // assign int to provided value
@@ -93,7 +92,6 @@ int get_config_value(const char* key, void* value, ValueType expectedType){
             // if the expected type is string and the key value is string
             else if(expectedType==STRING && config_params_arr[i].valueType==STRING){
                 // assign string pointer to provided value
-                printf("\t value: %s", config_params_arr[i].value.stringValue);
                 *(char**)value = config_params_arr[i].value.stringValue;
                 return 1; // flag success
             } else {
