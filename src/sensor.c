@@ -89,7 +89,8 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
     while(1){
         long val = (random() % (max - min + 1)) + min;
 
-        int required_size = snprintf(NULL, 0, "#%s#%s#%ld", sensor_id, key, val) + 1;
+        int required_size = snprintf(NULL, 0, "%c%s%c%s%c%ld%c",
+                                     INFO_DELIMITER, sensor_id, VALUE_DELIMITER, key, VALUE_DELIMITER, val, VALUE_DELIMITER) + 1;
 
         // if the required info string size exceeds that of the static buffer allocate dynamically
         if(required_size > BUFFER_SIZE){
@@ -103,7 +104,8 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
             }
 
             // copy the sensor info to buffer
-            snprintf(dynamicBuffer, required_size, "#%s#%s#%ld", sensor_id, key, val);
+            snprintf(dynamicBuffer, required_size, "%c%s%c%s%c%ld%c",
+                     INFO_DELIMITER, sensor_id, VALUE_DELIMITER, key, VALUE_DELIMITER, val, VALUE_DELIMITER);
 
             // write info to fifo
             ssize_t n = write(fd, dynamicBuffer, strlen(dynamicBuffer));
@@ -122,7 +124,8 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
 
         } else { // if the required info string size is less or equal than that of the static buffer, use it
             // copy the sensor info to buffer
-            snprintf(staticBuffer, required_size, "#%s#%s#%ld", sensor_id, key, val);
+            snprintf(staticBuffer, required_size, "%c%s%c%s%c%ld%c",
+                     INFO_DELIMITER, sensor_id, VALUE_DELIMITER, key, VALUE_DELIMITER, val, VALUE_DELIMITER);
 
             // write info to fifo
             ssize_t n = write(fd, staticBuffer, strlen(staticBuffer));
@@ -150,6 +153,8 @@ int main(int argc, char* argv[]){
             fprintf(stdout, "Too many arguments!\n");
         exit(1);
     }
+
+    setup_sigint_signal();
 
     int config_file_load_result = load_config_file(argv[6]);
     if(config_file_load_result != SUCCESS_CONFIG_FILE_LOAD){

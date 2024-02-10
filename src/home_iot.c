@@ -165,8 +165,11 @@ int main(int argc, char *argv[]){
 
     /* SENSOR_PIPE creation */
     if(mkfifo(sensorFIFO, 0666) == -1){
-        perror("mkfifo sensorFIFO");
-        exit(1);
+        unlink(sensorFIFO);
+        if(mkfifo(sensorFIFO, 0666) == -1){
+            perror("mkfifo sensorFIFO");
+            exit(1);
+        }
     }
 
     if((sys_manager_pid = fork()) == 0){

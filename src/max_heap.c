@@ -40,25 +40,46 @@ void heapify(maxHeap * maxHeap, size_t idx) {
     }
 }
 
-void insert_heap(maxHeap* maxHeap, int priority, char* data){
+void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
+    // Lock Heap mutex
+    pthread_mutex_lock(&maxHeap->heapMutex);
+
     // if heap is full, don't insert
     if(maxHeap->size == maxHeap->capacity) return;
 
     // insert node at the end
     size_t i = maxHeap->size++;
     maxHeap->heap[i].priority = priority;
-    maxHeap->heap[i].data = strdup(data);
+    maxHeap->heap[i].type = type;
+    switch(type){
+        case(SENSOR_DATA):
+            maxHeap->heap[i].sensorData = *(SensorData*)data;
+            break;
+        case USER_CONSOLE_DATA:
+            maxHeap->heap[i].userConsoleData = *(UserConsoleData*)data;
+            break;
+        default:
+            // revert changes and return
+            maxHeap->size--;
+            return;
+    }
 
     // fix the max heap if violated
     while(i!=0 && maxHeap->heap[(i -1) / 2].priority < maxHeap->heap[i].priority){
         swap(&maxHeap->heap[i], &maxHeap->heap[(i -1) / 2]);
         i = (i -1) / 2;
     }
+
+    // Unlock Heap mutex
+    pthread_mutex_unlock(&maxHeap->heapMutex);
 }
 
 node extract_max(maxHeap* maxHeap){
+    // Lock Heap mutex
+    pthread_mutex_lock(&maxHeap->heapMutex);
+
     if(maxHeap->size <= 0)
-        return (node){-1, NULL}; // return dummy node
+        return (node){-1, INVALID}; // return dummy node
     if(maxHeap->size == 1){
         maxHeap->size--;
         return maxHeap->heap[0];
@@ -68,14 +89,20 @@ node extract_max(maxHeap* maxHeap){
     maxHeap->heap[0] = maxHeap->heap[--maxHeap->size];
     heapify(maxHeap, 0);
 
+    // Unlock Heap mutex
+    pthread_mutex_unlock(&maxHeap->heapMutex);
+
     return root;
 }
 
 void free_heap(maxHeap* maxHeap){
-    // free all nodes data
-    for(size_t i=0; i < maxHeap->size; i++)
-        free(maxHeap->heap[i].data);
+    // Lock Heap mutex
+    pthread_mutex_lock(&maxHeap->heapMutex);
 
     free(maxHeap->heap);
+
+    // Destroy Heap mutex
+    pthread_mutex_destroy(&maxHeap->heapMutex);
+
     free(maxHeap);
 }

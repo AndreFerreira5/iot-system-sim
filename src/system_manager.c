@@ -17,6 +17,9 @@ void sys_sigint_handler(){
     request_log("INFO", "System Manager shutting down - SIGINT received");
     printf("System Manager shutting down - SIGINT received\n");
 
+    // propagate sigint upwards
+    kill(getppid(), SIGINT);
+
     exit(0);
 }
 
@@ -49,9 +52,8 @@ void init_sys_manager(char* sensorFIFO){
 
     setup_sigint_handler();
 
-
     /* Task Heap creation */
-    int heap_capacity;
+    int heap_capacity = 0;
     int result;
     if((result = get_config_value("HEAP_CAPACITY", &heap_capacity, INT)) != 1){ // if there's an error
         if(result == 0) request_log("ERROR", "HEAP_CAPACITY config value type mismatch (INT expected)");
@@ -75,9 +77,8 @@ void init_sys_manager(char* sensorFIFO){
     pthread_create(&sensor_reader_id, NULL, init_sensor_reader, &sensorReaderThreadArgs);
 
 
-
     /* Worker processes spawning */
-    size_t num_workers;
+    size_t num_workers = 0;
     if((result = get_config_value("NUM_WORKERS", &num_workers, INT)) != 1){
         if(result == 0) request_log("ERROR", "NUM_WORKERS config value type mismatch (INT expected)");
         else if(result == -1) request_log("ERROR", "NUM_WORKERS config key not found");
