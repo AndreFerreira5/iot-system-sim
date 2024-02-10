@@ -1,6 +1,7 @@
 #ifndef IOT_SYSTEM_SIM_SENSOR_H
 #define IOT_SYSTEM_SIM_SENSOR_H
 
-
+#define VALUE_DELIMITER '#'
+#define INFO_DELIMITER '|'
 
 #endif //IOT_SYSTEM_SIM_SENSOR_H
