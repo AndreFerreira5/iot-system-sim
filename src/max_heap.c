@@ -1,6 +1,7 @@
 #include "max_heap.h"
 #include <stdlib.h>
 #include <string.h>
+#include <pthread.h>
 
 maxHeap* create_heap(int capacity){
     maxHeap* heap = (maxHeap*) malloc(sizeof(maxHeap));
@@ -8,6 +9,7 @@ maxHeap* create_heap(int capacity){
         return NULL;
     }
 
+    pthread_mutex_init(&heap->heapMutex, NULL);
     heap->size = 0;
     heap->capacity = capacity;
     heap->heap = (node*)malloc(capacity * sizeof(node));

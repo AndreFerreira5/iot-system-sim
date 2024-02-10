@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 typedef struct Node{
-    u_short priority;
+    u_int8_t priority;
     char* data;
 } node;
 
@@ -12,6 +12,7 @@ typedef struct MaxHeap{
     node* heap;
     int size;
     int capacity;
+    pthread_mutex_t heapMutex;
 } maxHeap;
 
 maxHeap* create_heap(int capacity);
