@@ -9,10 +9,13 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#define BUFFER_SIZE 128
+
 int fd;
 char* sensorFIFO;
 
 void sensor_sigint_handler(){
+    unload_config_file();
     close(fd);
     exit(0);
 }
@@ -79,29 +82,60 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
         fprintf(stderr, "ERROR OPENING SENSOR PIPE FOR WRITING\n");
         exit(1);
     }
+
+    size_t bufferSize = BUFFER_SIZE;
+    char staticBuffer[bufferSize];
+    char* dynamicBuffer;
     while(1){
-        int val = (rand() % (max - min + 1)) + min;
+        long val = (random() % (max - min + 1)) + min;
 
-        int required_size = snprintf(NULL, 0, "#%s#%s#%d", sensor_id, key, val) + 1;
-        char* sensor_info = malloc(required_size);
-        if (!sensor_info) {
-            perror("Failed to allocate memory for sensor_info");
-            close(fd);
-            exit(1);
+        int required_size = snprintf(NULL, 0, "#%s#%s#%ld", sensor_id, key, val) + 1;
+
+        // if the required info string size exceeds that of the static buffer allocate dynamically
+        if(required_size > BUFFER_SIZE){
+            // allocate the buffer with the required size
+            dynamicBuffer = malloc(required_size);
+            // handle mem allocation error
+            if (!dynamicBuffer) {
+                perror("Failed to allocate memory for sensor_info");
+                close(fd);
+                exit(1);
+            }
+
+            // copy the sensor info to buffer
+            snprintf(dynamicBuffer, required_size, "#%s#%s#%ld", sensor_id, key, val);
+
+            // write info to fifo
+            ssize_t n = write(fd, dynamicBuffer, strlen(dynamicBuffer));
+            // handle fifo write error
+            if (n == -1) {
+                perror("ERROR WRITING TO PIPE");
+                free(dynamicBuffer);
+                close(fd);
+                exit(1);
+            }
+            // display sent info to fifo
+            printf("INFO SENT: %s\n", dynamicBuffer);
+
+            // deallocate buffer
+            free(dynamicBuffer);
+
+        } else { // if the required info string size is less or equal than that of the static buffer, use it
+            // copy the sensor info to buffer
+            snprintf(staticBuffer, required_size, "#%s#%s#%ld", sensor_id, key, val);
+
+            // write info to fifo
+            ssize_t n = write(fd, staticBuffer, strlen(staticBuffer));
+            // handle fifo write error
+            if (n == -1) {
+                perror("ERROR WRITING TO PIPE");
+                close(fd);
+                exit(1);
+            }
+            // display sent info to fifo
+            printf("INFO SENT: %s\n", staticBuffer);
         }
 
-        snprintf(sensor_info, required_size, "#%s#%s#%d", sensor_id, key, val);
-        printf("INFO SENT: %s\n", sensor_info);
-
-        ssize_t n = write(fd, sensor_info, strlen(sensor_info));
-        if (n == -1) {
-            perror("ERROR WRITING TO PIPE");
-            free(sensor_info);
-            close(fd);
-            exit(1);
-        }
-
-        free(sensor_info);
         sleep(interval); //sleep for the provided interval before sending info
     }
 }
