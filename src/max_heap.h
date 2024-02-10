@@ -33,6 +33,7 @@ typedef struct MaxHeap{
     node* heap;
     int size;
     int capacity;
+    pthread_mutexattr_t heapMutexAttr;
     pthread_mutex_t heapMutex;
 } maxHeap;
 

@@ -1,5 +1,6 @@
 #include "max_heap.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <pthread.h>
 
@@ -8,8 +9,11 @@ maxHeap* create_heap(int capacity){
     if(!heap){
         return NULL;
     }
+    pthread_mutexattr_init(&heap->heapMutexAttr);
+    pthread_mutexattr_settype(&heap->heapMutexAttr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&heap->heapMutex, &heap->heapMutexAttr);
+    pthread_mutexattr_destroy(&heap->heapMutexAttr);
 
-    pthread_mutex_init(&heap->heapMutex, NULL);
     heap->size = 0;
     heap->capacity = capacity;
     heap->heap = (node*)malloc(capacity * sizeof(node));
@@ -42,7 +46,9 @@ void heapify(maxHeap * maxHeap, size_t idx) {
 
 void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
     // Lock Heap mutex
+    fprintf(stderr, "WAITING FOR MUTEX\n");
     pthread_mutex_lock(&maxHeap->heapMutex);
+    fprintf(stderr, "MUTEX UNLOCKED\n");
 
     // if heap is full, don't insert
     if(maxHeap->size == maxHeap->capacity) return;
