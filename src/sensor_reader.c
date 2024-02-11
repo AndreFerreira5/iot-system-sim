@@ -135,7 +135,7 @@ _Noreturn void* init_sensor_reader(void* args){
     setup_sensor_reader_sigint_handler();
 
     int sensorPipeFD;
-    if((sensorPipeFD = open(sensorFIFO, O_RDONLY)) < 0){ //Open sensor pipe to write data
+    if((sensorPipeFD = open(sensorFIFO, O_RDWR)) < 0){ //Open sensor pipe to write data
         fprintf(stderr, "ERROR OPENING SENSOR PIPE FOR WRITING\n");
         request_log("ERROR", "ERROR OPENING SENSOR PIPE FOR WRITING");
         error_handler();
@@ -148,6 +148,7 @@ _Noreturn void* init_sensor_reader(void* args){
     char info_delimiter[] = {INFO_DELIMITER, '\0'};
     char value_delimiter[] = {VALUE_DELIMITER, '\0'};
     while(1){
+        // TODO optimize this malloc (it shouldn't be allocated every cycle, only when the staticBuffer is not enough)
         char* dynamicBuffer = malloc(dynamicBufferSize);
         // handle allocation error
         if(!dynamicBuffer){
