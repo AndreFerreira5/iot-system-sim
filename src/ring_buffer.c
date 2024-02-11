@@ -4,6 +4,10 @@
 #include <string.h>
 #include <errno.h>
 
+#define DELIMITER '#'
+
+char delimiter = DELIMITER;
+
 ring_buffer_t create_ring_buffer(){
     ring_buffer_t  rbuffer;
 
@@ -39,7 +43,7 @@ void put_ring(ring_buffer_t *rbuffer, char *string){
     }
 
     // write # at the end of the ring buffer to signal end of string
-    *(rbuffer->buffer + ((rbuffer->head + str_len) % MAX_BUFFER_SIZE)) = '#';
+    *(rbuffer->buffer + ((rbuffer->head + str_len) % MAX_BUFFER_SIZE)) = delimiter;
 
     // update ring buffer head (increment length of copied string + 1 for the #)
     rbuffer->head = (rbuffer->head + str_len + 1) % MAX_BUFFER_SIZE;
@@ -62,7 +66,7 @@ char* get_ring(ring_buffer_t *rbuffer){
 
     // calculating the length of the string to read (until # is found)
     size_t buffer_offset = (rbuffer->tail + i) % MAX_BUFFER_SIZE;
-    while(*(rbuffer->buffer + buffer_offset) != '#'){
+    while(*(rbuffer->buffer + buffer_offset) != delimiter){
         str_len++;
         i++;
         buffer_offset = (rbuffer->tail + i) % MAX_BUFFER_SIZE;
