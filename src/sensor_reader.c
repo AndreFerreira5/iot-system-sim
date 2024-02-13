@@ -44,11 +44,17 @@ int read_from_fifo(int sensorPipeFD,
 
     ssize_t bytesReadCurrent=0, bytesReadTotal=0;
 
+    
     // If the number of bytes read is the same as the buffer size, most likely there
     // is more info on the FIFO, so we need to get it as to not segment data between parsing cycles
     // To do that we use a dynamic buffer that will store all the additional info on the FIFO
+#ifdef DEBUG
+    ssize_t bytesRead = 0;
+    if((bytesRead = read(sensorPipeFD, staticBuffer, BUFFER_SIZE)) == BUFFER_SIZE){
+        fprintf(stdout, "[SENSOR READER] Read %zd bytes from SENSOR FIFO, exceeded static buffer size, using dynamic buffer!\n", bytesRead);
+#else
     if(read(sensorPipeFD, staticBuffer, BUFFER_SIZE) == BUFFER_SIZE){
-        fprintf(stderr, "READDDDD SENSOR READER\n");
+#endif
         // While the number of bytes read is the same as the dynamic buffer size, there is more data
         // in the FIFO, so keep doubling the dynamic buffer in size and reading into it until it's
         // all read as to not segment the data
@@ -74,7 +80,11 @@ int read_from_fifo(int sensorPipeFD,
         }
         return DYNAMIC_READ;
     }
-    fprintf(stderr, "READDDDD SENSOR READER\n");
+
+#ifdef DEBUG
+    fprintf(stdout, "[SENSOR READER] Read %zd bytes from SENSOR FIFO, using static buffer!\n", bytesRead);
+#endif
+
     return STATIC_READ;
 }
 
@@ -120,10 +130,14 @@ void parse_buffer_to_heap(char* staticBuffer, char info_delimiter[], char value_
         if(node.ID[0]=='\0') continue;
 
         // Insert node in Heap
+#ifdef DEBUG
         fprintf(stderr, "INSERTING IN HEAP\n");
-        fprintf(stderr, "sensorID: %s - key: %s - value: %ld\n", node.ID, node.key, node.value);
+        fprintf(stderr, "SensorID: %s - Key: %s - Value: %ld\n", node.ID, node.key, node.value);
+#endif
         insert_heap(taskHeap, TASK_PRIORITY, SENSOR_DATA, &node);
+#ifdef DEBUG
         fprintf(stderr, "INSERTED IN HEAP\n");
+#endif
     }
 }
 
@@ -157,12 +171,9 @@ _Noreturn void* init_sensor_reader(void* args){
             error_handler();
         }
 
-        fprintf(stderr, "ABOUT TO READ SENSOR READER\n");
         int readResult = read_from_fifo(sensorPipeFD, staticBufferSize, dynamicBufferSize, staticBuffer, dynamicBuffer);
-        fprintf(stderr, "BUFFER: %s\n\n", staticBuffer);
         char* staticParsingBuffer = staticBuffer;
         if(readResult == STATIC_READ){
-            fprintf(stderr, "STATIC READ\n");
             // parse static buffer
             parse_buffer_to_heap(staticParsingBuffer, info_delimiter, value_delimiter, taskHeap);
         } else if(readResult == DYNAMIC_READ){
