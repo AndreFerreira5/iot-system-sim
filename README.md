@@ -8,10 +8,21 @@ This project is based on an Operating System's class assignment but better thoug
 ![Revised Iot Sim Diagram](assets/new_diagram.svg)
 
 ## Build
+### Normal Build
+Default compilation option, the program will run as normal.
 ```sh
 mkdir build
 cd build
 cmake ..
+make
+```
+
+### Debug Build
+When setting the DEBUG flag, the simulator will give all kinds of information about what's going on under the hood (ie. insertions in the Bin Max Heap), thanks to conditional compilation. 
+```sh
+mkdir build
+cd build
+cmake -DDEBUG=ON ..
 make
 ```
 
