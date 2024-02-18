@@ -69,6 +69,10 @@ int main(int argc, char *argv[]){
         exit(-1);
     }
 
+#ifdef DEBUG
+    printf("IoT SIMULATOR STARTED IN DEBUG MODE\n");
+#endif
+
     // create shared memory for ring buffer
     rbuffer_shmem_size = sizeof(ring_buffer_t);
     ring_buffer_shmem = mmap(NULL, rbuffer_shmem_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
