@@ -65,9 +65,9 @@ void request_log(char* type, const char* format, ...){
         if(!buffer) return;
 
         // construct string
-        snprintf(buffer, total_len, "%s%c", type, SEPARATOR_CHAR);
+        snprintf(buffer, total_len + 1, "%s%c", type, SEPARATOR_CHAR);
         va_start(args, format);
-        vsnprintf(buffer + type_len + 1, msg_len, format, args);
+        vsnprintf(buffer + type_len + 1, msg_len + 1, format, args);
         va_end(args);
 
         // write string to ring buffer
@@ -77,12 +77,12 @@ void request_log(char* type, const char* format, ...){
         free(buffer);
     } else { // if the log length is less than the MAX_BUFFER_SIZE
         // create static buffer with calculated string length
-        char buffer[total_len];
+        char buffer[total_len + 1];
 
         // construct string
-        snprintf(buffer, total_len, "%s%c", type, SEPARATOR_CHAR);
+        snprintf(buffer, total_len + 1, "%s%c", type, SEPARATOR_CHAR);
         va_start(args, format);
-        vsnprintf(buffer + type_len + 1, msg_len, format, args);
+        vsnprintf(buffer + type_len + 1, msg_len + 1, format, args);
         va_end(args);
 
         // write string to ring buffer
