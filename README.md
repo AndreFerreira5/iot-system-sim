@@ -11,11 +11,11 @@ This project is based on an Operating System's class assignment but better thoug
 ### Release Build
 Default compilation option, the program will run as normal.
 
-*Using build script*
+**Using build script**
 ```shell
 ./build.sh Release
 ```
-*Manually*
+**Manually**
 ```sh
 mkdir build
 cd build
@@ -26,12 +26,12 @@ make
 ### Debug Build
 When setting the debug build type, CMake will define the DEBUG macro and the simulator will give all kinds of information about what's going on under the hood (ie. insertions in the Bin Max Heap). 
 
-*Using build script*
+**Using build script**
 ```shell
 ./build.sh Debug
 ```
 
-*Manually*
+**Manually**
 ```sh
 mkdir build
 cd build
