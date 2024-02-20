@@ -135,9 +135,6 @@ void parse_buffer_to_heap(char* staticBuffer, char info_delimiter[], char value_
         fprintf(stderr, "SensorID: %s - Key: %s - Value: %ld\n", node.ID, node.key, node.value);
 #endif
         insert_heap(taskHeap, TASK_PRIORITY, SENSOR_DATA, &node);
-#ifdef DEBUG
-        fprintf(stderr, "INSERTED IN HEAP\n");
-#endif
     }
 }
 
