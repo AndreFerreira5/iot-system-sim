@@ -24,6 +24,7 @@ typedef struct{
 typedef struct{
     sensor* sensors;
     alert* alerts;
+    pthread_mutex_t shmem_mutex;
 }sensors_alerts;
 
 #endif //IOT_SYSTEM_SIM_HOME_IOT_H

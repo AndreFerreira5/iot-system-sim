@@ -182,7 +182,10 @@ int main(int argc, char *argv[]){
     // calculate max size of shmem using number of max sensors & alerts
     size_t size_sensors = max_sensors * sizeof(sensor);
     size_t size_alerts = max_alerts * sizeof(alert);
-    total_sensors_alerts_size = size_sensors + size_alerts;
+    size_t mutex_size = sizeof(pthread_mutex_t);
+    total_sensors_alerts_size = size_sensors +
+                                size_alerts +
+                                mutex_size;
 
     // map memory
     sensors_alerts_mapped_mem = mmap(NULL, total_sensors_alerts_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
@@ -197,7 +200,6 @@ int main(int argc, char *argv[]){
     sensors_alerts sensors_alerts_shmem;
     sensors_alerts_shmem.sensors = (sensor*)sensors_alerts_mapped_mem;
     sensors_alerts_shmem.alerts = (alert*)(sensors_alerts_mapped_mem + size_sensors);
-
 
 
     if((get_config_result = get_config_value("SENSOR_PIPE", &sensorFIFO, STRING)) != 1
