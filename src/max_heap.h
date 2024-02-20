@@ -2,6 +2,7 @@
 #define IOT_SYSTEM_SIM_MAX_HEAP_H
 
 #include <stdlib.h>
+#include <semaphore.h>
 
 typedef enum {
     SENSOR_DATA,
@@ -35,6 +36,7 @@ typedef struct MaxHeap{
     int capacity;
     pthread_mutexattr_t heapMutexAttr;
     pthread_mutex_t heapMutex;
+    sem_t tasksSem;
 } maxHeap;
 
 maxHeap* create_heap(int capacity);

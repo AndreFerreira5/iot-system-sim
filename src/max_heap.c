@@ -13,6 +13,7 @@ maxHeap* create_heap(int capacity){
     pthread_mutexattr_settype(&heap->heapMutexAttr, PTHREAD_MUTEX_RECURSIVE);
     pthread_mutex_init(&heap->heapMutex, &heap->heapMutexAttr);
     pthread_mutexattr_destroy(&heap->heapMutexAttr);
+    sem_init(&heap->tasksSem, 1, 0);
 
     heap->size = 0;
     heap->capacity = capacity;
@@ -82,9 +83,19 @@ void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
 
     // Unlock Heap mutex
     pthread_mutex_unlock(&maxHeap->heapMutex);
+
+    // post task semaphore, adding 1 to its value
+    // signaling a new avaliable task on the heap
+    sem_post(&maxHeap->tasksSem);
 }
 
 node extract_max(maxHeap* maxHeap){
+
+    // wait for the task semaphore (if its value is 0
+    // it means there is no task in the heap, therefore
+    // blocking the process until there is one)
+    sem_wait(&maxHeap->tasksSem);
+
     // Lock Heap mutex
     pthread_mutex_lock(&maxHeap->heapMutex);
 
@@ -112,6 +123,7 @@ void free_heap(maxHeap* maxHeap){
     // Lock Heap mutex
     pthread_mutex_lock(&maxHeap->heapMutex);
 
+    sem_destroy(&maxHeap->tasksSem);
     free(maxHeap->heap);
 
     // Destroy Heap mutex
