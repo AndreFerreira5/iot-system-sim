@@ -1,8 +1,6 @@
 #include "home_iot.h"
-#include "sensors_alerts.h"
 #include "system_manager.h"
 #include "log.h"
-#include "max_heap.h"
 #include "config.h"
 #include "worker.h"
 #include "sensor_reader.h"

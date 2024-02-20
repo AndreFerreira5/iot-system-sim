@@ -1,6 +1,8 @@
 #ifndef IOT_SYSTEM_SIM_SYSTEM_MANAGER_H
 #define IOT_SYSTEM_SIM_SYSTEM_MANAGER_H
+
 #include "max_heap.h"
+#include "sensors_alerts.h"
 
 typedef struct{
     char* sensorFIFO;
