@@ -200,6 +200,7 @@ int main(int argc, char *argv[]){
     sensors_alerts sensors_alerts_shmem;
     sensors_alerts_shmem.sensors = (sensor*)sensors_alerts_mapped_mem;
     sensors_alerts_shmem.alerts = (alert*)(sensors_alerts_mapped_mem + size_sensors);
+    pthread_mutex_init(&sensors_alerts_shmem.shmem_mutex, NULL);
 
 
     if((get_config_result = get_config_value("SENSOR_PIPE", &sensorFIFO, STRING)) != 1
