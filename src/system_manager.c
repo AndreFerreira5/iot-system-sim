@@ -1,3 +1,5 @@
+#include "home_iot.h"
+#include "sensors_alerts.h"
 #include "system_manager.h"
 #include "log.h"
 #include "max_heap.h"
@@ -47,7 +49,7 @@ void setup_sigint_handler(){
     }
 }
 
-void init_sys_manager(char* sensorFIFO){
+void init_sys_manager(char* sensorFIFO, sensors_alerts* sensors_alerts_shmem){
     request_log("INFO", "SYSTEM MANAGER BOOTING UP");
 
     setup_sigint_handler();
@@ -91,7 +93,7 @@ void init_sys_manager(char* sensorFIFO){
     pid_t workers_pid[num_workers];
     for(size_t i=0; i<num_workers; i++) {
         if ((workers_pid[i] = fork()) == 0) {
-            init_worker();
+            init_worker(sensors_alerts_shmem, taskHeap);
         }
     }
 
