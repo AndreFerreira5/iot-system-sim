@@ -17,11 +17,12 @@ _Noreturn void init_worker(sensors_alerts* sensors_alerts_shmem, maxHeap* taskHe
         #endif
 
         // get task from heap
-        extract_max(taskHeap);
+        node task = extract_max(taskHeap);
 
         #ifdef DEBUG
         fprintf(stdout, "[WORKER %ld] GOT TASK FROM HEAP\n", pid);
         #endif
+
 
 
 
