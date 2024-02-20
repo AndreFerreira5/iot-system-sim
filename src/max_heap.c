@@ -3,21 +3,46 @@
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 maxHeap* create_heap(int capacity){
-    maxHeap* heap = (maxHeap*) malloc(sizeof(maxHeap));
-    if(!heap){
+    // allocate shared memory for maxHeap structure
+    maxHeap* heap = mmap(NULL, sizeof(maxHeap), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (heap == MAP_FAILED) {
+        perror("mmap for maxHeap structure failed");
         return NULL;
     }
+
+    // allocate shared memory for the heap array within the maxHeap structure
+    heap->heap = mmap(NULL, capacity * sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (heap->heap == MAP_FAILED) {
+        perror("mmap for heap array failed");
+        munmap(heap, sizeof(maxHeap));  // clean up previously allocated memory
+        return NULL;
+    }
+
+    // init mutex attribute
     pthread_mutexattr_init(&heap->heapMutexAttr);
     pthread_mutexattr_settype(&heap->heapMutexAttr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutexattr_setpshared(&heap->heapMutexAttr, PTHREAD_PROCESS_SHARED);
+    // init mutex with attribute
     pthread_mutex_init(&heap->heapMutex, &heap->heapMutexAttr);
+
+    // destroy the mutex attribute as it is no longer needed
     pthread_mutexattr_destroy(&heap->heapMutexAttr);
-    sem_init(&heap->tasksSem, 1, 0);
+
+    // init the semaphore as shared between processes
+    if (sem_init(&heap->tasksSem, 1, 0) != 0) {
+        perror("sem_init failed");
+        munmap(heap->heap, capacity * sizeof(node));  // clean up previously allocated memory
+        munmap(heap, sizeof(maxHeap));
+        return NULL;
+    }
 
     heap->size = 0;
     heap->capacity = capacity;
-    heap->heap = (node*)malloc(capacity * sizeof(node));
 
     return heap;
 }
@@ -53,6 +78,7 @@ void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
 
     // if heap is full, don't insert
     if(maxHeap->size == maxHeap->capacity){
+        fprintf(stderr, "HEAP FULL - DROPPING TASK!\n");
         pthread_mutex_unlock(&maxHeap->heapMutex);
         return;
     }
@@ -87,6 +113,10 @@ void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
     // post task semaphore, adding 1 to its value
     // signaling a new avaliable task on the heap
     sem_post(&maxHeap->tasksSem);
+
+    int sem_value;
+    sem_getvalue(&maxHeap->tasksSem, &sem_value);
+    fprintf(stderr, "MAX HEAP SEMAPHORE VALUE: %d\n", sem_value);
 }
 
 node extract_max(maxHeap* maxHeap){
@@ -94,7 +124,9 @@ node extract_max(maxHeap* maxHeap){
     // wait for the task semaphore (if its value is 0
     // it means there is no task in the heap, therefore
     // blocking the process until there is one)
+    fprintf(stdout, "waiting for semaphore\n");
     sem_wait(&maxHeap->tasksSem);
+    fprintf(stdout, "got out of semaphore\n");
 
     // Lock Heap mutex
     pthread_mutex_lock(&maxHeap->heapMutex);
@@ -119,15 +151,24 @@ node extract_max(maxHeap* maxHeap){
     return root;
 }
 
-void free_heap(maxHeap* maxHeap){
-    // Lock Heap mutex
+void unmap_heap(maxHeap* maxHeap){
+    if(!maxHeap) return;
+
+    // lock heap mutex
     pthread_mutex_lock(&maxHeap->heapMutex);
 
     sem_destroy(&maxHeap->tasksSem);
-    free(maxHeap->heap);
 
-    // Destroy Heap mutex
+    if (maxHeap->heap) {
+        munmap(maxHeap->heap, maxHeap->capacity * sizeof(node));
+    }
+
+    // unlock the mutex before destroying it
+    pthread_mutex_unlock(&maxHeap->heapMutex);
+
+    // destroy heap mutex
     pthread_mutex_destroy(&maxHeap->heapMutex);
 
-    free(maxHeap);
+    // unmap the maxheap struct
+    munmap(maxHeap, sizeof(maxHeap));
 }

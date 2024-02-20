@@ -42,6 +42,6 @@ typedef struct MaxHeap{
 maxHeap* create_heap(int capacity);
 void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data);
 node extract_max(maxHeap* maxHeap);
-void free_heap(maxHeap* maxHeap);
+void unmap_heap(maxHeap* maxHeap);
 
 #endif //IOT_SYSTEM_SIM_MAX_HEAP_H

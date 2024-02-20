@@ -11,11 +11,15 @@
 #include <wait.h>
 #include <pthread.h>
 
+maxHeap* taskHeap;
 
 void sys_sigint_handler(){
 
     request_log("INFO", "System Manager shutting down - SIGINT received");
     printf("System Manager shutting down - SIGINT received\n");
+
+    // if taskheap is mapped on memory, unmap it
+    if(taskHeap) unmap_heap(taskHeap);
 
     // propagate sigint upwards
     kill(getppid(), SIGINT);
@@ -26,6 +30,9 @@ void sys_sigint_handler(){
 void sys_error_handler(){
     request_log("INFO", "System Manager shutting down - Internal Error");
     printf("System Manager shutting down - Internal Error\n");
+
+    // if taskheap is mapped on memory, unmap it
+    if(taskHeap) unmap_heap(taskHeap);
 
     // propagate sigint upwards
     kill(getppid(), SIGINT);
@@ -62,9 +69,15 @@ void init_sys_manager(char* sensorFIFO, sensors_alerts* sensors_alerts_shmem){
     }
     if(heap_capacity <= 0){ // if the config value is invalid, exit
         request_log("ERROR", "HEAP_CAPACITY config value invalid (must be bigger than 0)");
+        fprintf(stderr, "HEAP_CAPACITY config value invalid (must be bigger than 0)");
         sys_error_handler();
     }
-    maxHeap* taskHeap = create_heap(heap_capacity);
+    taskHeap = create_heap(heap_capacity);
+    if(taskHeap != NULL){
+        request_log("ERROR", "Error creating shared memory for Task Heap");
+        fprintf(stderr, "Error creating shared memory for Task Heap");
+        sys_error_handler();
+    }
 
     // Sensor reader thread arguments creation
     SensorReaderThreadArgs sensorReaderThreadArgs;
