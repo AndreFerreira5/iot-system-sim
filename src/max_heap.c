@@ -51,7 +51,10 @@ void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
     fprintf(stderr, "MUTEX UNLOCKED\n");
 
     // if heap is full, don't insert
-    if(maxHeap->size == maxHeap->capacity) return;
+    if(maxHeap->size == maxHeap->capacity){
+        pthread_mutex_unlock(&maxHeap->heapMutex);
+        return;
+    }
 
     // insert node at the end
     size_t i = maxHeap->size++;
@@ -67,6 +70,7 @@ void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
         default:
             // revert changes and return
             maxHeap->size--;
+            pthread_mutex_unlock(&maxHeap->heapMutex);
             return;
     }
 
@@ -84,10 +88,13 @@ node extract_max(maxHeap* maxHeap){
     // Lock Heap mutex
     pthread_mutex_lock(&maxHeap->heapMutex);
 
-    if(maxHeap->size <= 0)
-        return (node){-1, INVALID}; // return dummy node
+    if(maxHeap->size <= 0) {
+        pthread_mutex_unlock(&maxHeap->heapMutex);
+        return (node) {-1, INVALID}; // return dummy node
+    }
     if(maxHeap->size == 1){
         maxHeap->size--;
+        pthread_mutex_unlock(&maxHeap->heapMutex);
         return maxHeap->heap[0];
     }
 
