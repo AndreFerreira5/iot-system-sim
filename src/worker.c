@@ -12,7 +12,6 @@ _Noreturn void init_worker(sensors_alerts* sensors_alerts_shmem, maxHeap* taskHe
 #endif
 
     while(1){
-
         #ifdef DEBUG
         fprintf(stdout, "[WORKER %ld] GETTING TASK IN HEAP\n", pid);
         #endif

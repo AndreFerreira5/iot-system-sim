@@ -73,7 +73,7 @@ void init_sys_manager(char* sensorFIFO, sensors_alerts* sensors_alerts_shmem){
         sys_error_handler();
     }
     taskHeap = create_heap(heap_capacity);
-    if(taskHeap != NULL){
+    if(taskHeap == NULL){
         request_log("ERROR", "Error creating shared memory for Task Heap");
         fprintf(stderr, "Error creating shared memory for Task Heap");
         sys_error_handler();

@@ -11,14 +11,14 @@ maxHeap* create_heap(int capacity){
     // allocate shared memory for maxHeap structure
     maxHeap* heap = mmap(NULL, sizeof(maxHeap), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (heap == MAP_FAILED) {
-        perror("mmap for maxHeap structure failed");
+        fprintf(stderr, "mmap for maxHeap structure failed");
         return NULL;
     }
 
     // allocate shared memory for the heap array within the maxHeap structure
     heap->heap = mmap(NULL, capacity * sizeof(node), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (heap->heap == MAP_FAILED) {
-        perror("mmap for heap array failed");
+        fprintf(stderr, "mmap for heap array failed");
         munmap(heap, sizeof(maxHeap));  // clean up previously allocated memory
         return NULL;
     }
@@ -35,7 +35,7 @@ maxHeap* create_heap(int capacity){
 
     // init the semaphore as shared between processes
     if (sem_init(&heap->tasksSem, 1, 0) != 0) {
-        perror("sem_init failed");
+        fprintf(stderr, "sem_init failed");
         munmap(heap->heap, capacity * sizeof(node));  // clean up previously allocated memory
         munmap(heap, sizeof(maxHeap));
         return NULL;
@@ -124,9 +124,7 @@ node extract_max(maxHeap* maxHeap){
     // wait for the task semaphore (if its value is 0
     // it means there is no task in the heap, therefore
     // blocking the process until there is one)
-    fprintf(stdout, "waiting for semaphore\n");
     sem_wait(&maxHeap->tasksSem);
-    fprintf(stdout, "got out of semaphore\n");
 
     // Lock Heap mutex
     pthread_mutex_lock(&maxHeap->heapMutex);
