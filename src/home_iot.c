@@ -16,6 +16,8 @@
 pid_t sys_manager_pid, logger_pid;
 shared_ring_buffer *ring_buffer_shmem;
 size_t rbuffer_shmem_size;
+void* sensors_alerts_mapped_mem;
+size_t total_sensors_alerts_size;
 char* sensorFIFO;
 int sensorFIFODesc;
 
@@ -55,6 +57,7 @@ void home_sigint_handler(){
 
     // unmap shared memory
     munmap(ring_buffer_shmem, rbuffer_shmem_size);
+    munmap(sensors_alerts_mapped_mem, total_sensors_alerts_size);
 
     close(sensorFIFODesc);
     unlink(sensorFIFO);
@@ -159,7 +162,47 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
+    // get maximum number of sensors and alerts
+    long max_sensors = 0,
+         max_alerts = 0;
+
     int get_config_result;
+    if((get_config_result = get_config_value("MAX_SENSORS", &max_sensors, INT)) != 1){
+        if(get_config_result == 0) request_log_safe("ERROR", "MAX_SENSORS config value type mismatch (INT expected)");
+        else if(get_config_result == -1) request_log_safe("ERROR", "MAX_SENSORS config key not found");
+        //home_iot_error_handler(); //TODO Implement this
+    }
+
+    if((get_config_result = get_config_value("MAX_ALERTS", &max_alerts, INT)) != 1){
+        if(get_config_result == 0) request_log_safe("ERROR", "MAX_ALERTS config value type mismatch (INT expected)");
+        else if(get_config_result == -1) request_log_safe("ERROR", "MAX_ALERTS config key not found");
+        //home_iot_error_handler(); //TODO Implement this
+    }
+
+    // calculate max size of shmem using number of max sensors & alerts
+    size_t size_sensors = max_sensors * sizeof(sensor);
+    size_t size_alerts = max_alerts * sizeof(alert);
+    size_t mutex_size = sizeof(pthread_mutex_t);
+    total_sensors_alerts_size = size_sensors +
+                                size_alerts +
+                                mutex_size;
+
+    // map memory
+    sensors_alerts_mapped_mem = mmap(NULL, total_sensors_alerts_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if(sensors_alerts_mapped_mem == MAP_FAILED){
+        printf("SHARED MEMORY INITIALIZATION FAILED");
+        //homeiot_error_handler();
+        exit(1);
+    }
+
+    // create sensors and alerts structure and assign the beginning
+    // of each memory region to the sensors and to the alerts
+    sensors_alerts sensors_alerts_shmem;
+    sensors_alerts_shmem.sensors = (sensor*)sensors_alerts_mapped_mem;
+    sensors_alerts_shmem.alerts = (alert*)(sensors_alerts_mapped_mem + size_sensors);
+    pthread_mutex_init(&sensors_alerts_shmem.shmem_mutex, NULL);
+
+
     if((get_config_result = get_config_value("SENSOR_PIPE", &sensorFIFO, STRING)) != 1
         || sensorFIFO == NULL){
         if(get_config_result == 0) request_log_safe("ERROR", "SENSOR_PIPE config value type mismatch (STRING expected)");
