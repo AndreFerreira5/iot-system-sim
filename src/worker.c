@@ -4,14 +4,25 @@
 #include <unistd.h>
 
 _Noreturn void init_worker(sensors_alerts* sensors_alerts_shmem, maxHeap* taskHeap){
-    request_log("INFO", "WORKER %ld BOOTING UP", (long)getpid());
+    long pid = (long)getpid();
+
+    request_log("INFO", "WORKER %ld BOOTING UP", pid);
 #ifdef DEBUG
-    fprintf(stdout, "WORKER %ld BOOTING UP", (long)getpid());
+    fprintf(stdout, "WORKER %ld BOOTING UP\n", pid);
 #endif
 
     while(1){
+
+        #ifdef DEBUG
+        fprintf(stdout, "[WORKER %ld] GETTING TASK IN HEAP\n", pid);
+        #endif
+
         // get task from heap
         extract_max(taskHeap);
+
+        #ifdef DEBUG
+        fprintf(stdout, "[WORKER %ld] GOT TASK FROM HEAP\n", pid);
+        #endif
 
 
 
