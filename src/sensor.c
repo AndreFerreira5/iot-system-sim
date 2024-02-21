@@ -14,6 +14,14 @@
 int fd;
 char* sensorFIFO;
 
+void signal_dead_sensor(char* sensor_id){
+    char staticBuffer[BUFFER_SIZE];
+    // signal system that sensor is alive
+    snprintf(staticBuffer, BUFFER_SIZE, "%c%s%cDEAD%c0%c",
+             INFO_DELIMITER, sensor_id, VALUE_DELIMITER, VALUE_DELIMITER, VALUE_DELIMITER);
+    write(fd, staticBuffer, strlen(staticBuffer));
+}
+
 void sensor_sigint_handler(){
     unload_config_file();
     close(fd);
@@ -86,6 +94,7 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
     size_t bufferSize = BUFFER_SIZE;
     char staticBuffer[bufferSize];
     char* dynamicBuffer;
+
     while(1){
         long val = (random() % (max - min + 1)) + min;
 
@@ -99,6 +108,7 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
             // handle mem allocation error
             if (!dynamicBuffer) {
                 perror("Failed to allocate memory for sensor_info");
+                signal_dead_sensor(sensor_id);
                 close(fd);
                 exit(1);
             }
@@ -113,6 +123,7 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
             if (n == -1) {
                 perror("ERROR WRITING TO PIPE");
                 free(dynamicBuffer);
+                signal_dead_sensor(sensor_id);
                 close(fd);
                 exit(1);
             }
@@ -132,6 +143,7 @@ _Noreturn void simulate_sensor(char *sensor_id, int interval, char *key, int min
             // handle fifo write error
             if (n == -1) {
                 perror("ERROR WRITING TO PIPE");
+                signal_dead_sensor(sensor_id);
                 close(fd);
                 exit(1);
             }
