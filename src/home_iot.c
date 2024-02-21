@@ -181,10 +181,16 @@ int main(int argc, char *argv[]){
     }
 
     // calculate max size of shmem using number of max sensors & alerts
-    size_t size_sensors = max_sensors * sizeof(sensor);
+    size_t size_sensors = max_sensors * sizeof(sensor_info);
+    size_t size_sensor_indices = max_sensors * sizeof(size_t);
+    size_t size_active_sensors = sizeof(int);
+    size_t size_max_sensors = sizeof(int);
     size_t size_alerts = max_alerts * sizeof(alert);
     size_t mutex_size = sizeof(pthread_mutex_t);
     total_sensors_alerts_size = size_sensors +
+                                size_sensor_indices +
+                                size_active_sensors +
+                                size_max_sensors +
                                 size_alerts +
                                 mutex_size;
 
@@ -199,9 +205,24 @@ int main(int argc, char *argv[]){
     // create sensors and alerts structure and assign the beginning
     // of each memory region to the sensors and to the alerts
     sensors_alerts sensors_alerts_shmem;
-    sensors_alerts_shmem.sensors = (sensor*)sensors_alerts_mapped_mem;
-    sensors_alerts_shmem.alerts = (alert*)(sensors_alerts_mapped_mem + size_sensors);
-    pthread_mutex_init(&sensors_alerts_shmem.shmem_mutex, NULL);
+    sensors_alerts_shmem.sensors = (sensor_info*)sensors_alerts_mapped_mem;
+    sensors_alerts_shmem.sensor_indices = (size_t*)(sensors_alerts_mapped_mem + size_sensors);
+    sensors_alerts_shmem.alerts = (alert*)(sensors_alerts_mapped_mem +
+                                            size_sensors +
+                                            size_sensor_indices +
+                                            size_active_sensors +
+                                            size_max_sensors);
+
+    sensors_alerts_shmem.max_sensors = max_sensors;
+    // setting hash table with -1
+    for(size_t i=0; i<max_sensors; i++) sensors_alerts_shmem.sensor_indices[i] = -1;
+
+    // init the mutex within the mapped memory
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
+    pthread_mutex_init(&sensors_alerts_shmem.shmem_mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
 
 
     if((get_config_result = get_config_value("SENSOR_PIPE", &sensorFIFO, STRING)) != 1

@@ -12,10 +12,10 @@ typedef enum {
 
 
 typedef struct{
-    char ID[33];
+    char id[33];
     char key[33];
     long value;
-} SensorData;
+} sensor;
 
 typedef struct{
     // TODO finish this struct
@@ -25,7 +25,7 @@ typedef struct Node{
     u_int8_t priority;
     DataType type;
     union {
-        SensorData sensorData;
+        sensor sensor;
         UserConsoleData userConsoleData;
     };
 } node;

@@ -2,13 +2,15 @@
 #define IOT_SYSTEM_SIM_SENSORS_ALERTS_H
 
 #include <pthread.h>
+#include <stdio.h>
 #include <string.h>
+#include "max_heap.h"
 
 typedef struct{
-    char id[32];
-    char key[32];
-    long value;
-}sensor;
+    char id[33];
+    char key[33];
+    long min, max, latest;
+}sensor_info;
 
 typedef struct{
     char id[32];
@@ -17,16 +19,16 @@ typedef struct{
 }alert;
 
 typedef struct{
-    sensor* sensors;
+    sensor_info* sensors;
     size_t* sensor_indices;
-    int active_sensors;
-    int max_sensors;
+    long active_sensors;
+    long max_sensors;
     alert* alerts;
     pthread_mutex_t shmem_mutex;
 }sensors_alerts;
 
 
-size_t hash_sensor_id(const char* id, int max_sensors){
+static inline size_t hash_sensor_id(const char* id, long max_sensors){
     unsigned long hash = 5381; // magic hash number
     int c;
 
@@ -38,12 +40,17 @@ size_t hash_sensor_id(const char* id, int max_sensors){
 }
 
 
-int insert_sensor_hash_table(sensors_alerts* sa, sensor new_sensor){
+static inline int insert_sensor_hash_table(sensors_alerts* sa, sensor new_sensor){
     // if the number of max sensors has been reached return 0
     if(sa->active_sensors == sa->max_sensors) return 0;
 
-    // insert sensor on sensors array in the first slot available
-    sa->sensors[sa->active_sensors] = new_sensor;
+    // init a sensor_info struct with the provided sensor info
+    // and insert it on sensors array in the first slot available
+    sensor_info sensor_info;
+    strcpy(sensor_info.id, new_sensor.id);
+    strcpy(sensor_info.key, new_sensor.key);
+    sensor_info.min = sensor_info.max = sensor_info.latest = new_sensor.value;
+    sa->sensors[sa->active_sensors] = sensor_info;
 
     // hash the sensor's ID to find the index in sensorIndices
     size_t index = hash_sensor_id(new_sensor.id, sa->max_sensors);
@@ -55,7 +62,7 @@ int insert_sensor_hash_table(sensors_alerts* sa, sensor new_sensor){
     }
 
     // link the hashed index to the sensor's position in the sensors array
-    sa->sensor_indices[index] = sa->max_sensors;
+    sa->sensor_indices[index] = sa->active_sensors;
 
     // increment number of active sensors
     sa->active_sensors++;
@@ -63,10 +70,11 @@ int insert_sensor_hash_table(sensors_alerts* sa, sensor new_sensor){
 }
 
 
-sensor* find_sensor_hash_table(sensors_alerts* sa, const char* id){
+static inline sensor_info* find_sensor_hash_table(sensors_alerts* sa, const char* id){
     size_t index = hash_sensor_id(id, sa->max_sensors);
 
     while(sa->sensor_indices[index] != -1){
+        fprintf(stdout, "%s - %s\n", sa->sensors[sa->sensor_indices[index]].id, id);
         if(strcmp(sa->sensors[sa->sensor_indices[index]].id, id) == 0){
             return &sa->sensors[sa->sensor_indices[index]];
         }
@@ -77,7 +85,7 @@ sensor* find_sensor_hash_table(sensors_alerts* sa, const char* id){
 }
 
 
-void compact_sensors_array(sensors_alerts* sa, size_t sensor_position){
+static inline void compact_sensors_array(sensors_alerts* sa, size_t sensor_position){
     for (size_t i = sensor_position; i < sa->max_sensors - 1; i++) {
         sa->sensors[i] = sa->sensors[i + 1];
         // Update sensorIndices for the shifted sensor
@@ -87,7 +95,7 @@ void compact_sensors_array(sensors_alerts* sa, size_t sensor_position){
 }
 
 
-void remove_sensor_hash_table(sensors_alerts* sa, const char* id){
+static inline void remove_sensor_hash_table(sensors_alerts* sa, const char* id){
     size_t index = hash_sensor_id(id, sa->max_sensors);
     size_t sensor_position = -1;
 

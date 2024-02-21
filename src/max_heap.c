@@ -89,7 +89,7 @@ void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
     maxHeap->heap[i].type = type;
     switch(type){
         case(SENSOR_DATA):
-            maxHeap->heap[i].sensorData = *(SensorData*)data;
+            maxHeap->heap[i].sensor = *(sensor*)data;
             break;
         case USER_CONSOLE_DATA:
             maxHeap->heap[i].userConsoleData = *(UserConsoleData*)data;
