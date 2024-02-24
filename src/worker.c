@@ -52,7 +52,7 @@ void process_sensor_data(sensors_alerts* sa, sensor sensor_task){
         long latest_value = sensor_task.value;
         sensor_info->latest = latest_value;
         if(latest_value > sensor_info->max) sensor_info->max = latest_value;
-        if(latest_value > sensor_info->min) sensor_info->min = latest_value;
+        if(latest_value < sensor_info->min) sensor_info->min = latest_value;
     }
 }
 
