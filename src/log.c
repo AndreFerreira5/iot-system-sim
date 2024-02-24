@@ -9,9 +9,12 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <signal.h>
+#include <stdarg.h>
 
-#define DELIMITER "#"
-#define SEPARATOR "|"
+#define MAX_BUFFER_SIZE 4096
+#define SEPARATOR_STR "|"
+#define SEPARATOR_CHAR '|'
+
 
 // time structure
 time_t t;
@@ -35,68 +38,133 @@ char* get_current_time(){
 }
 
 int rbuffer_is_initialized(){
-    if(ring_buffer_shmem == NULL){
-        return 0;
-    }
-    return 1;
+    return ring_buffer_shmem != NULL;
 }
 
 
-/**
- * @brief Requests a log.
- *
- * This function requests a log by putting the log info
- * on the ring buffer.
- *
- * @param type Type of log.
- * @param message Log message.
- * @return void.
- */
-void request_log(char* type, char* message){
+void request_log(char* type, const char* format, ...){
+    va_list args;
+    va_start(args, format);
+
+   // calculate the formatted string length
+    size_t msg_len = vsnprintf(NULL, 0, format, args);
+    va_end(args);
+
+    size_t type_len = strlen(type);
     // calculate length of the string to be written to ring buffer (type + 1 (| to separate) + message)
-    size_t str_len = strlen(type) + strlen(message) + 1;
-    char str[str_len];
-    // join the string
-    snprintf(str, str_len, "%s|%s", type, message);
-    // write string to ring buffer
-    put_ring(&ring_buffer_shmem->ring_buffer, str);
+    size_t total_len = type_len + 1 + msg_len;
+
+    // if the string passed is empty, return
+    if(total_len <= 1) return;
+
+    // if the log length exceeds the max buffer size allocate memory on the heap
+    if(total_len >= MAX_BUFFER_SIZE){
+        // allocate buffer with additional byte for null terminator
+        char* buffer = (char*)malloc(total_len + 1);
+        // if the memory allocation fails just drop log request
+        if(!buffer) return;
+
+        // construct string
+        snprintf(buffer, total_len + 1, "%s%c", type, SEPARATOR_CHAR);
+        va_start(args, format);
+        vsnprintf(buffer + type_len + 1, msg_len + 1, format, args);
+        va_end(args);
+
+        // write string to ring buffer
+        put_ring(&ring_buffer_shmem->ring_buffer, buffer);
+
+        // free allocated buffer
+        free(buffer);
+    } else { // if the log length is less than the MAX_BUFFER_SIZE
+        // create static buffer with calculated string length
+        char buffer[total_len + 1];
+
+        // construct string
+        snprintf(buffer, total_len + 1, "%s%c", type, SEPARATOR_CHAR);
+        va_start(args, format);
+        vsnprintf(buffer + type_len + 1, msg_len + 1, format, args);
+        va_end(args);
+
+        // write string to ring buffer
+        put_ring(&ring_buffer_shmem->ring_buffer, buffer);
+    }
 }
 
-void request_log_safe(char* type, char* message){
+
+void flush_temp_log_buffer(){
+    // flush any logs from the temporary buffer first
+    for(size_t i = 0; i < temp_log_buffer.count; i++){
+        request_log(temp_log_buffer.types[i], temp_log_buffer.messages[i]);
+        free(temp_log_buffer.types[i]);
+        free(temp_log_buffer.messages[i]);
+    }
+    free(temp_log_buffer.types);
+    free(temp_log_buffer.messages);
+    temp_log_buffer.count = 0;
+    temp_log_buffer.capacity = 0;
+}
+
+
+void expand_temp_log_buffer(){
+    temp_log_buffer.capacity = (temp_log_buffer.capacity == 0) ? 64 : temp_log_buffer.capacity * 2;
+    temp_log_buffer.types = realloc(temp_log_buffer.types, temp_log_buffer.capacity * sizeof(char*));
+    temp_log_buffer.messages = realloc(temp_log_buffer.messages, temp_log_buffer.capacity * sizeof(char*));
+    if(!temp_log_buffer.types || !temp_log_buffer.messages){
+        fprintf(stderr, "Error allocating memory for temp_log_buffer\n");
+        kill(getpid(), SIGINT);
+        return;
+    }
+}
+
+
+void request_log_safe(char* type, const char* format, ...){
     if(rbuffer_is_initialized()){
-        // flush any logs from the temporary buffer first
-        printf("temp_log_buffer.count: %zu\n", temp_log_buffer.count);
-        for(size_t i = 0; i < temp_log_buffer.count; i++){
-            request_log(temp_log_buffer.types[i], temp_log_buffer.messages[i]);
-            free(temp_log_buffer.types[i]);
-            free(temp_log_buffer.messages[i]);
-        }
-        //free(temp_log_buffer.types);
-        //free(temp_log_buffer.messages);
-        temp_log_buffer.count = 0;
-        temp_log_buffer.capacity = 0;
+
+        if(temp_log_buffer.count>0)
+            flush_temp_log_buffer();
 
         // log the current request to the ring buffer
-        request_log(type, message);
+        va_list args;
+        va_start(args, format);
+        // get formatted message size + 1 for null terminator
+        size_t formatted_message_size = vsnprintf(NULL, 0, format, args) + 1;
+        va_end(args);
+
+        // allocate memory for the formatted message buffer
+        char* formatted_message = (char*)malloc(formatted_message_size);
+        // if the memory allocation errors, just drop the log
+        if(!formatted_message) return;
+        va_start(args, format);
+        vsnprintf(formatted_message, formatted_message_size, format, args);
+        va_end(args);
+        request_log(type, formatted_message);
+        va_end(args);
     } else {
         // if temp log buffer is full, reallocate
         if(temp_log_buffer.count == temp_log_buffer.capacity){
-            temp_log_buffer.capacity = (temp_log_buffer.capacity == 0) ? 64 : temp_log_buffer.capacity * 2;
-            temp_log_buffer.types = realloc(temp_log_buffer.types, temp_log_buffer.capacity * sizeof(char*));
-            temp_log_buffer.messages = realloc(temp_log_buffer.messages, temp_log_buffer.capacity * sizeof(char*));
-            if(!temp_log_buffer.types || !temp_log_buffer.messages){
-                printf("Error allocating memory\n");
-                kill(getpid(), SIGINT);
-                return;
-            }
+            expand_temp_log_buffer();
         }
+
+        va_list args;
+        va_start(args, format);
+        // get formatted message size + 1 for null terminator
+        size_t formatted_message_size = vsnprintf(NULL, 0, format, args) + 1;
+        va_end(args);
+
+        // allocate memory for the formatted message buffer
+        char* formatted_message = (char*)malloc(formatted_message_size);
+        // if the memory allocation errors, just drop the log
+        if(!formatted_message) return;
+        va_start(args, format);
+        vsnprintf(formatted_message, formatted_message_size, format, args);
+        va_end(args);
 
         // store the log in the temp buffer
         temp_log_buffer.types[temp_log_buffer.count] = strdup(type);
-        temp_log_buffer.messages[temp_log_buffer.count] = strdup(message);
-        if (!temp_log_buffer.types[temp_log_buffer.count] || !temp_log_buffer.messages[temp_log_buffer.count]) {
-            printf("Error allocating memory\n");
-            kill(getpid(), SIGINT);
+        temp_log_buffer.messages[temp_log_buffer.count] = formatted_message;
+        // if the memory allocation errors, just drop the log
+        if (!temp_log_buffer.types[temp_log_buffer.count]) {
+            free(formatted_message);
             return;
         }
         temp_log_buffer.count++;
@@ -106,18 +174,21 @@ void request_log_safe(char* type, char* message){
 void write_log(char* type, char* message){
     char* datetime = get_current_time();
     int result = fprintf(log_file, "[%s] [%s] %s\n", datetime, type, message);
+
+#ifdef DEBUG
     if(result > 0){
-        printf("LOG WRITTEN\n");
+        fprintf(stdout, "LOG WRITTEN\n");
         return;
     }
-    printf("ERROR - LOG NOT WRITTEN\n");
+    fprintf(stderr, "ERROR - LOG NOT WRITTEN\n");
+#endif
 }
 
 void process_remaining_logs(){
     int requests_count;
     // get semaphore value that represents the number of requests on the buffer
     sem_getvalue(&ring_buffer_shmem->ring_buffer.requests_count, &requests_count);
-
+    fprintf(stdout, "[LOGGER] Remaining logs to process: %d\n", requests_count);
     // get x requests from the ring buffer
     for(int i=0; i<requests_count; i++){
         // get string from ring buffer
@@ -126,16 +197,16 @@ void process_remaining_logs(){
         void* orig_string_ptr = extracted_string;
 
         // extract string before the | char (type)
-        char *type = extract_string(extracted_string, SEPARATOR);
+        char *type = extract_string(extracted_string, SEPARATOR_STR);
         if (type == NULL){
-            printf("Couldn't extract string - skipping request\n");
+            fprintf(stderr, "Couldn't extract string - skipping request\n");
             continue;
         }
 
         // point to string right after the | char (message)
-        extracted_string = skip_delimiter(extracted_string, SEPARATOR);
+        extracted_string = skip_delimiter(extracted_string, SEPARATOR_STR);
         if (type == NULL){
-            printf("Couldn't skip delimiter - skipping request\n");
+            fprintf(stderr, "Couldn't skip delimiter - skipping request\n");
             free(type);
             continue;
         }
@@ -152,8 +223,8 @@ void process_remaining_logs(){
 }
 
 void log_sigint_handler(){
-    request_log("INFO", "Logger process shutting down - SIGINT received");
-    printf("Logger process shutting down - SIGINT received\n");
+    request_log("INFO", "[LOGGER] RECEIVED SIGINT - Shutting down");
+    fprintf(stdout, "[LOGGER] RECEIVED SIGINT - Shutting down\n");
     process_remaining_logs();
     fflush(log_file);
     fclose(log_file);
@@ -161,8 +232,8 @@ void log_sigint_handler(){
 }
 
 void log_error_handler(){
-    request_log("ERROR", "Logger process shutting down - Internal Error");
-    printf("Logger process shutting down - Internal Error\n");
+    request_log("ERROR", "[LOGGER] INTERNAL ERROR - Shutting down");
+    fprintf(stdout, "[LOGGER] INTERNAL ERROR - Shutting down\n");
     process_remaining_logs();
     fflush(log_file);
     fclose(log_file);
@@ -195,6 +266,7 @@ char* generate_log_name(){
 }
 
 _Noreturn void init_logger(){
+    request_log_safe("INFO", "[LOGGER] BOOTING UP");
 
     // create sigaction struct
     struct sigaction sa;
@@ -204,7 +276,7 @@ _Noreturn void init_logger(){
 
     // register the sigint signal handler
     if(sigaction(SIGINT, &sa, NULL) == -1){
-        printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
+        fprintf(stderr, "ERROR REGISTERING SIGTERM SIGNAL HANDLER");
         exit(1);
     }
 
@@ -212,7 +284,7 @@ _Noreturn void init_logger(){
     // open log file for writing
     log_file = fopen(log_file_name, "w");
     if(log_file == NULL){
-        printf("ERROR OPENING LOG FILE\n");
+        fprintf(stderr, "ERROR OPENING LOG FILE\n");
         log_error_handler();
     }
 
@@ -222,16 +294,16 @@ _Noreturn void init_logger(){
         void* orig_string_ptr = extracted_string;
 
         // extract string before the | char (type)
-        char *type = extract_string(extracted_string, SEPARATOR);
+        char *type = extract_string(extracted_string, SEPARATOR_STR);
         if (type == NULL){
-            printf("Couldn't extract string - skipping request\n");
+            fprintf(stderr, "Couldn't extract string - skipping request\n");
             continue;
         }
 
         // point to string right after the | char (message)
-        extracted_string = skip_delimiter(extracted_string, SEPARATOR);
+        extracted_string = skip_delimiter(extracted_string, SEPARATOR_STR);
         if (type == NULL){
-            printf("Couldn't skip delimiter - skipping request\n");
+            fprintf(stderr, "Couldn't skip delimiter - skipping request\n");
             free(type);
             continue;
         }
