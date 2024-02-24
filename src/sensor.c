@@ -13,6 +13,7 @@
 
 int fd;
 char* sensorFIFO;
+char* sensorID;
 
 void signal_dead_sensor(char* sensor_id){
     char staticBuffer[BUFFER_SIZE];
@@ -23,6 +24,7 @@ void signal_dead_sensor(char* sensor_id){
 }
 
 void sensor_sigint_handler(){
+    signal_dead_sensor(sensorID);
     unload_config_file();
     close(fd);
     exit(0);
@@ -72,6 +74,11 @@ void validate_key(char* key){
                 printf("INVALID KEY (CONTAINS NON ALPHANUMERIC CHARS)\n");
                 exit(1);
             }
+        }
+
+        if(strcmp(key, "DEAD")==0){
+            printf("INVALID KEY (RESERVED)\n");
+            exit(1);
         }
     }
 }
@@ -208,7 +215,7 @@ int main(int argc, char* argv[]){
 
     srand(time(0));
 
-    char* sensorID = argv[1];
+    sensorID = argv[1];
     int interval = atoi(argv[2]);
     char* key = argv[3];
     int min_value = atoi(argv[4]);

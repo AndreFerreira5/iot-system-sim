@@ -88,27 +88,27 @@ int read_from_fifo(int sensorPipeFD,
     return STATIC_READ;
 }
 
-SensorData parse_sensor_info_to_node(char* staticBuffer, char value_delimiter[]){
+sensor parse_sensor_info_to_node(char* staticBuffer, char value_delimiter[]){
     // Get values and check if each one is found
     // If one of them is not found, return a dummy node
     // After extracting the string delimited by the value_delimiter, skip it
     // as the extract_string doesn't do it itself
     char* sensorID = extract_string(staticBuffer, value_delimiter);
-    if(sensorID == NULL) return (SensorData){'\0'};
+    if(sensorID == NULL) return (sensor){'\0'};
     staticBuffer = skip_delimiter(staticBuffer, value_delimiter);
 
     char* sensorKey = extract_string(staticBuffer, value_delimiter);
-    if(sensorKey == NULL) return (SensorData){'\0'};
+    if(sensorKey == NULL) return (sensor){'\0'};
     staticBuffer = skip_delimiter(staticBuffer, value_delimiter);
 
     char* sensorValue = extract_string(staticBuffer, value_delimiter);
-    if(sensorValue == NULL) return (SensorData){'\0'};
+    if(sensorValue == NULL) return (sensor){'\0'};
     staticBuffer = skip_delimiter(staticBuffer, value_delimiter);
 
     // Create SensorData node
-    SensorData node;
-    strncpy(node.ID, sensorID, sizeof(node.ID) -1);
-    node.ID[sizeof(node.ID) - 1] = '\0';
+    sensor node;
+    strncpy(node.id, sensorID, sizeof(node.id) -1);
+    node.id[sizeof(node.id) - 1] = '\0';
     strncpy(node.key, sensorKey, sizeof(node.key) -1);
     node.key[sizeof(node.key) - 1] = '\0';
     node.value = atol(sensorValue);
@@ -123,21 +123,18 @@ void parse_buffer_to_heap(char* staticBuffer, char info_delimiter[], char value_
     // Parse info while there is a INFO_DELIMITER (|)
     while((staticBuffer = find_delimiter(staticBuffer, info_delimiter)) != NULL){
         staticBuffer = skip_delimiter(staticBuffer, info_delimiter);
-        SensorData node = parse_sensor_info_to_node(staticBuffer, value_delimiter);
+        sensor node = parse_sensor_info_to_node(staticBuffer, value_delimiter);
 
         // Check if the node returned is valid
         // If not skip this iteration
-        if(node.ID[0]=='\0') continue;
+        if(node.id[0]=='\0') continue;
 
         // Insert node in Heap
 #ifdef DEBUG
         fprintf(stderr, "INSERTING IN HEAP\n");
-        fprintf(stderr, "SensorID: %s - Key: %s - Value: %ld\n", node.ID, node.key, node.value);
+        fprintf(stderr, "SensorID: %s - Key: %s - Value: %ld\n", node.id, node.key, node.value);
 #endif
         insert_heap(taskHeap, TASK_PRIORITY, SENSOR_DATA, &node);
-#ifdef DEBUG
-        fprintf(stderr, "INSERTED IN HEAP\n");
-#endif
     }
 }
 

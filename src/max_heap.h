@@ -2,6 +2,7 @@
 #define IOT_SYSTEM_SIM_MAX_HEAP_H
 
 #include <stdlib.h>
+#include <semaphore.h>
 
 typedef enum {
     SENSOR_DATA,
@@ -11,10 +12,10 @@ typedef enum {
 
 
 typedef struct{
-    char ID[33];
+    char id[33];
     char key[33];
     long value;
-} SensorData;
+} sensor;
 
 typedef struct{
     // TODO finish this struct
@@ -24,7 +25,7 @@ typedef struct Node{
     u_int8_t priority;
     DataType type;
     union {
-        SensorData sensorData;
+        sensor sensor;
         UserConsoleData userConsoleData;
     };
 } node;
@@ -35,11 +36,12 @@ typedef struct MaxHeap{
     int capacity;
     pthread_mutexattr_t heapMutexAttr;
     pthread_mutex_t heapMutex;
+    sem_t tasksSem;
 } maxHeap;
 
 maxHeap* create_heap(int capacity);
 void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data);
 node extract_max(maxHeap* maxHeap);
-void free_heap(maxHeap* maxHeap);
+void unmap_heap(maxHeap* maxHeap);
 
 #endif //IOT_SYSTEM_SIM_MAX_HEAP_H

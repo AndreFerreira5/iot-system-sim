@@ -7,7 +7,7 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-add_executable(iot-system-sim lib/Nuklear/nuklear.h src/home_iot.c src/log.c src/log.h src/home_iot.h src/string.c src/string.h src/config.c lib/cJSON/cJSON.c src/system_manager.c src/system_manager.h src/ring_buffer.c src/ring_buffer.h src/max_heap.c src/max_heap.h src/worker.c src/worker.h src/sensor_reader.c src/sensor_reader.h)
+add_executable(iot-system-sim src/home_iot.c src/log.c src/log.h src/home_iot.h src/string.c src/string.h src/config.c lib/cJSON/cJSON.c src/system_manager.c src/system_manager.h src/ring_buffer.c src/ring_buffer.h src/max_heap.c src/max_heap.h src/worker.c src/worker.h src/sensor_reader.c src/sensor_reader.h src/sensors_alerts.h)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(iot-system-sim PRIVATE DEBUG=1)
 endif()
