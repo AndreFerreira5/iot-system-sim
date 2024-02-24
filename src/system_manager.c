@@ -55,7 +55,7 @@ void setup_sigint_handler(){
 }
 
 void init_sys_manager(char* sensorFIFO, sensors_alerts* sensors_alerts_shmem){
-    request_log("INFO", "SYSTEM MANAGER BOOTING UP");
+    request_log("INFO", "[SYSTEM MANAGER] BOOTING UP");
 
     setup_sigint_handler();
 

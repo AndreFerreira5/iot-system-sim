@@ -174,18 +174,21 @@ void request_log_safe(char* type, const char* format, ...){
 void write_log(char* type, char* message){
     char* datetime = get_current_time();
     int result = fprintf(log_file, "[%s] [%s] %s\n", datetime, type, message);
+
+#ifdef DEBUG
     if(result > 0){
         fprintf(stdout, "LOG WRITTEN\n");
         return;
     }
     fprintf(stderr, "ERROR - LOG NOT WRITTEN\n");
+#endif
 }
 
 void process_remaining_logs(){
     int requests_count;
     // get semaphore value that represents the number of requests on the buffer
     sem_getvalue(&ring_buffer_shmem->ring_buffer.requests_count, &requests_count);
-    fprintf(stdout, "Remaining logs to process: %d\n", requests_count);
+    fprintf(stdout, "[LOGGER] Remaining logs to process: %d\n", requests_count);
     // get x requests from the ring buffer
     for(int i=0; i<requests_count; i++){
         // get string from ring buffer
@@ -220,8 +223,8 @@ void process_remaining_logs(){
 }
 
 void log_sigint_handler(){
-    request_log("INFO", "Logger process shutting down - SIGINT received");
-    fprintf(stdout, "Logger process shutting down - SIGINT received\n");
+    request_log("INFO", "[LOGGER] RECEIVED SIGINT - Shutting down");
+    fprintf(stdout, "[LOGGER] RECEIVED SIGINT - Shutting down\n");
     process_remaining_logs();
     fflush(log_file);
     fclose(log_file);
@@ -229,8 +232,8 @@ void log_sigint_handler(){
 }
 
 void log_error_handler(){
-    request_log("ERROR", "Logger process shutting down - Internal Error");
-    fprintf(stdout, "Logger process shutting down - Internal Error\n");
+    request_log("ERROR", "[LOGGER] INTERNAL ERROR - Shutting down");
+    fprintf(stdout, "[LOGGER] INTERNAL ERROR - Shutting down\n");
     process_remaining_logs();
     fflush(log_file);
     fclose(log_file);
@@ -263,6 +266,7 @@ char* generate_log_name(){
 }
 
 _Noreturn void init_logger(){
+    request_log_safe("INFO", "[LOGGER] BOOTING UP");
 
     // create sigaction struct
     struct sigaction sa;

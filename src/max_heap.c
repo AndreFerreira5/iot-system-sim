@@ -71,14 +71,20 @@ void heapify(maxHeap * maxHeap, size_t idx) {
 }
 
 void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
-    // Lock Heap mutex
+    // lock heap mutex
+#ifdef DEBUG
     fprintf(stderr, "WAITING FOR MUTEX\n");
+#endif
     pthread_mutex_lock(&maxHeap->heapMutex);
+#ifdef DEBUG
     fprintf(stderr, "MUTEX UNLOCKED\n");
+#endif
 
     // if heap is full, don't insert
     if(maxHeap->size == maxHeap->capacity){
+#ifdef DEBUG
         fprintf(stderr, "HEAP FULL - DROPPING TASK!\n");
+#endif
         pthread_mutex_unlock(&maxHeap->heapMutex);
         return;
     }
@@ -114,9 +120,11 @@ void insert_heap(maxHeap* maxHeap, int priority, DataType type, void* data){
     // signaling a new avaliable task on the heap
     sem_post(&maxHeap->tasksSem);
 
+#ifdef DEBUG
     int sem_value;
     sem_getvalue(&maxHeap->tasksSem, &sem_value);
     fprintf(stderr, "MAX HEAP SEMAPHORE VALUE: %d\n", sem_value);
+#endif
 }
 
 node extract_max(maxHeap* maxHeap){

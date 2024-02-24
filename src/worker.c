@@ -37,13 +37,17 @@ void process_sensor_data(sensors_alerts* sa, sensor sensor_task){
     if(strcmp(sensor_task.key, "DEAD")==0){
         remove_sensor_hash_table(sa, sensor_task.id);
     } else {
+#ifdef DEBUG
         fprintf(stdout, "FINDING SENSOR HASH TABLE\n");
+#endif
         // get sensor from hash table
         sensor_info* sensor_info = find_sensor_hash_table(sa, sensor_task.id);
 
         // if the sensor is not on the hash table, insert it
         if(sensor_info == NULL){
+#ifdef DEBUG
             fprintf(stdout, "INSERTING SENSOR IN HASH TABLE\n");
+#endif
             insert_sensor_hash_table(sa, sensor_task);
             return;
         }
@@ -73,16 +77,16 @@ _Noreturn void init_worker(sensors_alerts* sensors_alerts_shmem, maxHeap* taskHe
     #endif
 
     while(1){
-        #ifdef DEBUG
+#ifdef DEBUG
         fprintf(stdout, "[WORKER %ld] GETTING TASK IN HEAP\n", pid);
-        #endif
+#endif
 
         // get task from heap
         node task = extract_max(taskHeap);
 
-        #ifdef DEBUG
+#ifdef DEBUG
         fprintf(stdout, "[WORKER %ld] GOT TASK FROM HEAP\n", pid);
-        #endif
+#endif
 
         if(task.type == INVALID) continue;
 

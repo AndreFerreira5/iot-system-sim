@@ -24,12 +24,12 @@ int sensorFIFODesc;
 
 void home_sigint_handler(){
 
-    request_log("INFO", "Home_IoT shutting down - SIGINT received");
-    printf("Home_IoT shutting down - SIGINT received\n");
+    request_log("INFO", "[HOME IOT] RECEIVED SIGINT - Shutting down");
+    fprintf(stdout, "[HOME IOT] RECEIVED SIGINT - Shutting down\n");
 
     /* SYS MANAGER */
-    request_log("INFO", "Waiting for system manager process to shutdown");
-    printf("WAITING FOR LOGGER PROCESS TO SHUTDOWN\n");
+    request_log("INFO", "[HOME IOT] Waiting for system manager process to shutdown");
+    fprintf(stdout, "[HOME IOT] WAITING FOR LOGGER PROCESS TO SHUTDOWN\n");
 
     // send SIGINT to the system manager process
     if(kill(sys_manager_pid, SIGINT) == -1){
@@ -40,8 +40,8 @@ void home_sigint_handler(){
     waitpid(sys_manager_pid, 0, 0);
 
 
-    request_log("INFO", "Waiting for logger process to shutdown");
-    printf("WAITING FOR LOGGER PROCESS TO SHUTDOWN\n");
+    request_log("INFO", "[HOME IOT] Waiting for logger process to shutdown");
+    printf("[HOME IOT] WAITING FOR LOGGER PROCESS TO SHUTDOWN\n");
 
     // close the logger process as last for all the logs to be logged
     if(kill(logger_pid, SIGINT) == -1){
@@ -50,7 +50,6 @@ void home_sigint_handler(){
 
     //wait for logger process to finish
     waitpid(logger_pid, 0, 0);
-    printf("logger process shuted down\n");
 
     // destroy ring buffer semaphores
     sem_destroy(&ring_buffer_shmem->ring_buffer.ring_buffer_sem);
@@ -90,12 +89,11 @@ int main(int argc, char *argv[]){
     if ((logger_pid = fork()) == 0){
         init_logger();
     }
-    printf("logger_pid: %d\n", logger_pid);
 
     // create ring buffer
     ring_buffer_shmem->ring_buffer = create_ring_buffer();
 
-    request_log_safe("INFO", "HOME IOT BOOTING UP");
+    request_log_safe("INFO", "[HOME IOT] BOOTING UP");
 
     int config_file_load_result = load_config_file(argv[1]);
     if(config_file_load_result != SUCCESS_CONFIG_FILE_LOAD){
@@ -139,12 +137,14 @@ int main(int argc, char *argv[]){
         }
         //wait for logger process to finish
         waitpid(logger_pid, 0, 0);
-        printf("logger process shuted down\n");
 
         exit(1);
     }
     request_log_safe("INFO", "CONFIG FILE LOADED INTO MEMORY");
+
+#ifdef DEBUG
     fprintf(stdout, "CONFIG FILE LOADED INTO MEMORY\n");
+#endif
 
     // create sigaction struct
     struct sigaction sa;
@@ -252,7 +252,9 @@ int main(int argc, char *argv[]){
     if((sys_manager_pid = fork()) == 0){
         init_sys_manager(sensorFIFO, &sensors_alerts_shmem);
     }
+#ifdef DEBUG
     printf("sys_manager_pid: %d\n", sys_manager_pid);
+#endif
 
     waitpid(sys_manager_pid, 0, 0);
     waitpid(logger_pid, 0, 0);
