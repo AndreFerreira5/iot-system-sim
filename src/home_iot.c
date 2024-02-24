@@ -215,7 +215,15 @@ int main(int argc, char *argv[]){
 
     sensors_alerts_shmem.max_sensors = max_sensors;
     // setting hash table with -1
-    for(size_t i=0; i<max_sensors; i++) sensors_alerts_shmem.sensor_indices[i] = -1;
+    for(size_t i=0; i<max_sensors; i++){
+        sensors_alerts_shmem.sensors[i].latest = -1;
+        sensors_alerts_shmem.sensors[i].min = -1;
+        sensors_alerts_shmem.sensors[i].max = -1;
+        sensors_alerts_shmem.sensors[i].id[0] = '\0';
+        sensors_alerts_shmem.sensors[i].key[0] = '\0';
+
+        sensors_alerts_shmem.sensor_indices[i] = -1;
+    }
 
     // init the mutex within the mapped memory
     pthread_mutexattr_t attr;
