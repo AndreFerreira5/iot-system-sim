@@ -2,6 +2,34 @@
 #include "log.h"
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
+
+long pid;
+
+
+void worker_sigint_handler(){
+    request_log("INFO", "[WORKER %ld] RECEIVED SIGINT - Propagating signal upwards", pid);
+    fprintf(stdout, "[WORKER %ld] RECEIVED SIGINT - Propagating signal upwards\n", pid);
+    // progagate sigint upwards
+    kill(SIGINT, getppid());
+    exit(0);
+}
+
+
+void setup_worker_sigint_handler(){
+    // create sigaction struct
+        struct sigaction sa;
+    sa.sa_handler = worker_sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    // register the sigint signal handler
+    if(sigaction(SIGINT, &sa, NULL) == -1){
+        request_log("ERROR", "Couldn't register SIGINT signal handler");
+        printf("ERROR REGISTERING SIGTERM SIGNAL HANDLER");
+        exit(1);
+    }
+}
 
 
 void process_sensor_data(sensors_alerts* sa, sensor sensor_task){
@@ -26,7 +54,6 @@ void process_sensor_data(sensors_alerts* sa, sensor sensor_task){
         if(latest_value > sensor_info->max) sensor_info->max = latest_value;
         if(latest_value > sensor_info->min) sensor_info->min = latest_value;
     }
-        // if the hash table has reached the max sensor size, remove the sensor that hasnt responded in the longest time (possibly the DEAD signal has been dropped and didnt reach the workers)
 }
 
 
@@ -36,12 +63,14 @@ void process_user_console_data(node* task){
 
 
 _Noreturn void init_worker(sensors_alerts* sensors_alerts_shmem, maxHeap* taskHeap){
-    long pid = (long)getpid();
+    setup_worker_sigint_handler();
+
+    pid = (long)getpid();
 
     request_log("INFO", "WORKER %ld BOOTING UP", pid);
-#ifdef DEBUG
+    #ifdef DEBUG
     fprintf(stdout, "WORKER %ld BOOTING UP\n", pid);
-#endif
+    #endif
 
     while(1){
         #ifdef DEBUG
@@ -55,11 +84,10 @@ _Noreturn void init_worker(sensors_alerts* sensors_alerts_shmem, maxHeap* taskHe
         fprintf(stdout, "[WORKER %ld] GOT TASK FROM HEAP\n", pid);
         #endif
 
+        if(task.type == INVALID) continue;
 
-        fprintf(stdout, "[WORKER %ld] UNLOCKING MUTEX\n", pid);
         // lock shmem mutex
-        pthread_mutex_unlock(&sensors_alerts_shmem->shmem_mutex);
-        fprintf(stdout, "[WORKER %ld] UNLOCKED MUTEX\n", pid);
+        pthread_mutex_lock(&sensors_alerts_shmem->shmem_mutex);
 
         switch(task.type){
             case SENSOR_DATA:
@@ -72,10 +100,7 @@ _Noreturn void init_worker(sensors_alerts* sensors_alerts_shmem, maxHeap* taskHe
                 break;
         }
 
-        fprintf(stdout, "[WORKER %ld] LOCKING MUTEX\n", pid);
         // unlock shmem mutex
-        pthread_mutex_lock(&sensors_alerts_shmem->shmem_mutex);
-        fprintf(stdout, "[WORKER %ld] LOCKED MUTEX\n", pid);
-
+        pthread_mutex_unlock(&sensors_alerts_shmem->shmem_mutex);
     }
 }
