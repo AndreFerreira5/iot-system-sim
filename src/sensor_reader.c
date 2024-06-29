@@ -39,7 +39,7 @@ void setup_sensor_reader_sigint_handler(){
 }
 
 int read_from_fifo(int sensorPipeFD,
-                   size_t staticBufferSize, size_t dynamicBufferSize,
+                   ssize_t staticBufferSize, ssize_t dynamicBufferSize,
                    char* staticBuffer, char* dynamicBuffer){
 
     ssize_t bytesReadCurrent=0, bytesReadTotal=0;
@@ -50,17 +50,27 @@ int read_from_fifo(int sensorPipeFD,
     // To do that we use a dynamic buffer that will store all the additional info on the FIFO
 #ifdef DEBUG
     ssize_t bytesRead = 0;
-    if((bytesRead = read(sensorPipeFD, staticBuffer, BUFFER_SIZE)) == BUFFER_SIZE){
+    if((bytesRead = read(sensorPipeFD, staticBuffer, staticBufferSize)) == staticBufferSize){
         fprintf(stdout, "[SENSOR READER] Read %zd bytes from SENSOR FIFO, exceeded static buffer size, using dynamic buffer!\n", bytesRead);
 #else
-    if(read(sensorPipeFD, staticBuffer, BUFFER_SIZE) == BUFFER_SIZE){
+    if(read(sensorPipeFD, staticBuffer, staticBufferSize) == staticBufferSize){
 #endif
+
+        dynamicBuffer = malloc(dynamicBufferSize);
+        if(!dynamicBuffer) {
+            request_log("ERROR", "Failed to allocate memory for dynamicBuffer");
+            fprintf(stderr, "Failed to allocate memory for dynamicBuffer");
+            error_handler();
+        }
+        memcpy(dynamicBuffer, staticBuffer, staticBufferSize);
+        bytesReadTotal += staticBufferSize;
+
         // While the number of bytes read is the same as the dynamic buffer size, there is more data
         // in the FIFO, so keep doubling the dynamic buffer in size and reading into it until it's
         // all read as to not segment the data
         while((bytesReadCurrent = read(sensorPipeFD, dynamicBuffer+bytesReadTotal, dynamicBufferSize-bytesReadTotal)) == dynamicBufferSize-bytesReadTotal){
             // handle FIFO reading error
-            if(bytesReadTotal<0) {
+            if(bytesReadCurrent<0) {
                 request_log("ERROR", "FIFO reading error (returned < 0)");
                 fprintf(stderr, "FIFO reading error (returned < 0)");
                 error_handler();
@@ -78,6 +88,10 @@ int read_from_fifo(int sensorPipeFD,
                 error_handler();
             }
         }
+#ifdef DEBUG
+        fprintf(stdout, "[SENSOR READER] Read %zd bytes from SENSOR FIFO, using dynamic buffer!\n", bytesReadTotal);
+        fprintf(stdout, "%s\n", dynamicBuffer);
+#endif
         return DYNAMIC_READ;
     }
 
@@ -119,11 +133,11 @@ sensor parse_sensor_info_to_node(char* staticBuffer, char value_delimiter[]){
     return node;
 }
 
-void parse_buffer_to_heap(char* staticBuffer, char info_delimiter[], char value_delimiter[], maxHeap* taskHeap){
+void parse_buffer_to_heap(char* buffer, char info_delimiter[], char value_delimiter[], maxHeap* taskHeap){
     // Parse info while there is a INFO_DELIMITER (|)
-    while((staticBuffer = find_delimiter(staticBuffer, info_delimiter)) != NULL){
-        staticBuffer = skip_delimiter(staticBuffer, info_delimiter);
-        sensor node = parse_sensor_info_to_node(staticBuffer, value_delimiter);
+    while((buffer = find_delimiter(buffer, info_delimiter)) != NULL){
+        buffer = skip_delimiter(buffer, info_delimiter);
+        sensor node = parse_sensor_info_to_node(buffer, value_delimiter);
 
         // Check if the node returned is valid
         // If not skip this iteration
@@ -152,34 +166,30 @@ _Noreturn void* init_sensor_reader(void* args){
         error_handler();
     }
 
-    size_t staticBufferSize = BUFFER_SIZE;
-    size_t dynamicBufferSize = BUFFER_SIZE;
+    ssize_t staticBufferSize = BUFFER_SIZE;
+    ssize_t dynamicBufferSize = BUFFER_SIZE*2; // dynamic buffer size is double than that of the static buffer, so, in case
+                                              // the static buffer is not enough, its content is copied to the dynamic buffer,
+                                              // effectively occupying BUFFER_SIZE while still having BUFFER_SIZE free
+                                              // (and then growing exponentially, as needed)
     char staticBuffer[staticBufferSize];
+    char* dynamicBuffer = NULL;
 
     char info_delimiter[] = {INFO_DELIMITER, '\0'};
     char value_delimiter[] = {VALUE_DELIMITER, '\0'};
     while(1){
-        // TODO optimize this malloc (it shouldn't be allocated every cycle, only when the staticBuffer is not enough)
-        char* dynamicBuffer = malloc(dynamicBufferSize);
-        // handle allocation error
-        if(!dynamicBuffer){
-            request_log("ERROR", "Failed to allocate memory for dynamicBuffer");
-            fprintf(stderr, "Failed to allocate memory for dynamicBuffer");
-            error_handler();
-        }
 
         int readResult = read_from_fifo(sensorPipeFD, staticBufferSize, dynamicBufferSize, staticBuffer, dynamicBuffer);
-        char* staticParsingBuffer = staticBuffer;
         if(readResult == STATIC_READ){
             // parse static buffer
+            char* staticParsingBuffer = staticBuffer;
             parse_buffer_to_heap(staticParsingBuffer, info_delimiter, value_delimiter, taskHeap);
         } else if(readResult == DYNAMIC_READ){
             char* dynamicParsingBuffer = dynamicBuffer;
-            // parse static buffer
-            parse_buffer_to_heap(staticParsingBuffer, info_delimiter, value_delimiter, taskHeap);
             // parse dynamic buffer
             parse_buffer_to_heap(dynamicParsingBuffer, info_delimiter, value_delimiter, taskHeap);
+
+            free(dynamicBuffer);
+            dynamicBuffer = NULL;
         }
-        free(dynamicBuffer);
     }
 }
